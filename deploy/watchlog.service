@@ -1,0 +1,17 @@
+[Unit]
+Description=Watch log: movies and shows we've watched
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=watchlog
+WorkingDirectory=/opt/watchlog
+# the package lives at /opt/watchlog/watchlog/
+Environment=PYTHONPATH=/opt/watchlog
+ExecStart=/usr/bin/python3 -m watchlog --db /var/lib/watchlog/watchlog.db --port 9280
+StateDirectory=watchlog
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

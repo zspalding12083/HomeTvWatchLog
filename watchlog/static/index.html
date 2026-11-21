@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watch Log</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍿</text></svg>">
+<style>
+:root {
+  --bg: #f6f5f2; --card: #fff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e4e2dc;
+  --accent: #c2410c; --accent-ink: #fff; --star: #e0a100; --sleep: #6d5bd0; --sleep-bg: #ece9fb;
+  --bar: #c9c6be;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141416; --card: #1f1f23; --ink: #ececef; --muted: #9a9aa3; --line: #2f2f35;
+    --accent: #f97316; --accent-ink: #141416; --star: #f5c542; --sleep: #a99bff; --sleep-bg: #2b2747;
+    --bar: #45454d;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 16px 16px 80px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+h1 { font-size: 22px; margin: 0; white-space: nowrap; }
+header button { white-space: nowrap; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 24px 0 8px; }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); padding: 8px 14px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.danger { color: #dc2626; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.tile .n { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tile .l { color: var(--muted); font-size: 13px; }
+.services { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.svc { display: grid; grid-template-columns: 96px 1fr 104px; gap: 10px; align-items: center; padding: 4px 0; font-size: 14px; }
+.svc .track { height: 14px; display: flex; border-radius: 4px; overflow: hidden; }
+.svc .awake { background: var(--bar); }
+.svc .zz { background: var(--sleep); }
+.svc .meta { color: var(--muted); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.legend { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin: 0 4px 0 10px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.filters input, .filters select { flex: 1 1 140px; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; width: 100%; }
+.list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px 8px 8px;
+  display: grid; grid-template-columns: 46px 1fr auto; gap: 2px 12px; cursor: pointer; text-align: left; width: 100%; }
+.poster { grid-row: 1 / span 3; width: 46px; height: 69px; border-radius: 6px; object-fit: cover;
+  background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.item .t, .item .sub, .item .notes { grid-column: 2; }
+.item .t { align-self: end; }
+.item .sub { align-self: start; }
+.item:hover { border-color: var(--muted); }
+.item .t { font-weight: 600; }
+.item .t small { font-weight: 400; color: var(--muted); }
+.item .sub { color: var(--muted); font-size: 13px; }
+.item .right { grid-column: 3; grid-row: 1 / span 2; text-align: right; align-self: center; }
+.item .notes { grid-column: 2 / -1; font-size: 13px; color: var(--muted); font-style: italic; }
+.dlg-head { display: flex; gap: 12px; align-items: center; }
+.dlg-head img { width: 60px; height: 90px; border-radius: 6px; object-fit: cover; }
+.filter-note { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.linkish { border: none; background: none; padding: 0; color: var(--accent); font-size: 13px; }
+.dlg-head .linkish { border: none; background: none; padding: 0; color: var(--accent); font-size: 13px; }
+.stars { color: var(--star); letter-spacing: 1px; white-space: nowrap; }
+.badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--sleep-bg); color: var(--sleep); margin-top: 2px; }
+.empty { color: var(--muted); text-align: center; padding: 32px 0; }
+dialog { border: none; border-radius: 14px; padding: 0; width: min(480px, calc(100vw - 32px));
+  background: var(--card); color: var(--ink); }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+form { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+form h3 { margin: 0; font-size: 18px; }
+label, .lbl { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { flex: 1; border: none; border-radius: 0; padding: 8px 6px; background: transparent; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.seg.sleep button.on { background: var(--sleep); color: var(--card); }
+.starpick { display: flex; align-items: center; gap: 10px; }
+.starpick .s { font-size: 32px; line-height: 1; cursor: pointer; user-select: none; touch-action: manipulation; }
+.starpick .s span { position: relative; display: inline-block; color: var(--line); }
+.starpick .s span::before { content: "★"; position: absolute; left: 0; top: 0; overflow: hidden; color: var(--star); width: var(--fill, 0%); }
+.starpick .v { color: var(--muted); font-size: 14px; min-width: 60px; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; }
+.actions .danger { margin-right: auto; }
+.title-wrap { position: relative; }
+.sugg { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin-top: 4px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); max-height: 300px; overflow-y: auto; }
+.sugg div { padding: 8px 10px; cursor: pointer; color: var(--ink); font-size: 14px; }
+.sugg div + div { border-top: 1px solid var(--line); }
+.sugg div.on, .sugg div:hover { background: var(--bg); }
+.sugg small { color: var(--muted); display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sugg .note { color: var(--muted); cursor: default; }
+.head-btns { flex: 0 0 auto; gap: 8px; }
+.imp-list { max-height: 45vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+.imp-row { display: flex; gap: 10px; align-items: center; padding: 6px 10px; font-size: 14px; color: var(--ink); flex-direction: row; }
+.imp-row + .imp-row { border-top: 1px solid var(--line); }
+.imp-row input { width: auto; }
+.imp-row .d { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; text-align: right; }
+.imp-row.dup { opacity: .5; }
+.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); }
+.check input { width: auto; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+.err { color: #dc2626; font-size: 13px; min-height: 1em; }
+@media (max-width: 640px) {
+  .wide { display: none; }
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .svc { grid-template-columns: 80px 1fr 84px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🍿 Watch Log</h1>
+    <div class="row head-btns"><button id="imp">Import</button><button class="primary" id="add">+ Log<span class="wide"> a watch</span></button></div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile"><div class="n" id="t-month">–</div><div class="l">this month</div></div>
+    <div class="tile"><div class="n" id="t-total">–</div><div class="l" id="t-total-l">watched</div></div>
+    <div class="tile"><div class="n" id="t-rating">–</div><div class="l">average rating</div></div>
+    <div class="tile"><div class="n" id="t-asleep">–</div><div class="l" id="t-asleep-l">Person 2 didn't see the end</div></div>
+  </div>
+
+  <h2>By service</h2>
+  <div class="services" id="services"></div>
+
+  <h2>History</h2>
+  <div class="filters">
+    <input id="q" type="search" placeholder="Did we watch…? Search titles, episodes, notes">
+    <select id="f-service"><option value="">All services</option></select>
+    <select id="f-kind"><option value="">Movies and shows</option><option value="movie">Movies</option><option value="show">Shows</option></select>
+    <select id="f-sleep"><option value="">Saw the end or not</option><option value="0">Person 2 saw the end</option><option value="1">Person 2 didn't see the end</option></select>
+    <select id="f-rated"><option value="">Rated or not</option><option value="0">Not rated yet</option></select>
+    <select id="f-who"><option value="">Anyone watched</option><option value="p1">Person 1 watched</option><option value="p2">Person 2 watched</option><option value="both">Watched together</option><option value="p1-only">Person 1 on his own</option><option value="p2-only">Person 2 on her own</option></select>
+    <select id="f-sort"><option value="">Newest watched first</option><option value="oldest">Oldest watched first</option><option value="title">Title A–Z</option><option value="rating">Highest rated</option><option value="added">Recently added</option></select>
+  </div>
+  <div class="filter-note" id="filter-note" hidden><span id="filter-text"></span> <button type="button" class="linkish" id="clear-filters">Show all</button></div>
+  <div class="list" id="list"></div>
+</main>
+
+<dialog id="dlg">
+  <form id="form" method="dialog">
+    <div class="dlg-head">
+      <img id="dlg-img" alt="" hidden>
+      <div>
+        <h3 id="dlg-title">Log a watch</h3>
+        <button type="button" class="linkish" id="poster-again" hidden>Find poster again</button>
+      </div>
+    </div>
+    <label class="title-wrap">Title
+      <input name="title" autocomplete="off" placeholder="Start typing to search" required>
+      <div class="sugg" id="sugg" hidden></div>
+    </label>
+    <p class="hint" id="title-note" hidden>Already in your log. Saving updates that entry (newer date, this episode).</p>
+    <div class="seg" id="kind"><button type="button" data-v="movie">Movie</button><button type="button" data-v="show">Show</button></div>
+    <div class="row">
+      <label>Service <select name="service"></select></label>
+      <label id="ep-wrap">Episode <input name="episode" placeholder="S1E4"></label>
+    </div>
+    <label>Watched on <input name="watched_on" type="date" required></label>
+    <div class="lbl">Rating
+      <div class="starpick">
+        <div class="s" id="stars"></div>
+        <span class="v" id="star-v">not rated</span>
+        <button type="button" id="star-clear">clear</button>
+      </div>
+    </div>
+    <div class="lbl">Did Person 2 see the end?
+      <div class="seg sleep" id="sleep"><button type="button" data-v="0">Saw the end</button><button type="button" data-v="1">Dozed off</button><button type="button" data-v="2">Out cold 😴</button></div>
+    </div>
+    <div class="lbl">Who watched?
+      <div class="seg" id="who"><button type="button" data-v="p1">Person 1</button><button type="button" data-v="p2">Person 2</button><button type="button" data-v="both">Both</button></div>
+    </div>
+    <label>Notes <textarea name="notes" rows="2"></textarea></label>
+    <div class="err" id="err"></div>
+    <div class="actions">
+      <button type="button" class="danger" id="del" hidden>Delete</button>
+      <button type="button" id="cancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="imp-dlg">
+  <form id="imp-form" method="dialog">
+    <h3>Import Netflix history</h3>
+    <p class="hint">On netflix.com: Account → your profile → Viewing activity → <b>Download all</b>. Then pick that file here. Each title is listed once: titles already in the log just get any new episodes and a newer date, and keep their rating. Do it again for each profile.</p>
+    <div class="lbl">Whose Netflix profile is this file from?
+      <div class="seg" id="imp-who"><button type="button" data-v="p1">Person 1</button><button type="button" data-v="p2">Person 2</button></div>
+    </div>
+    <input type="file" id="imp-file" accept=".csv,text/csv">
+    <label class="check" id="imp-all-wrap" hidden><input type="checkbox" id="imp-all" checked> <span id="imp-count"></span></label>
+    <div class="imp-list" id="imp-list" hidden></div>
+    <div class="err" id="imp-err"></div>
+    <div class="actions">
+      <button type="button" id="imp-cancel">Cancel</button>
+      <button type="submit" class="primary" id="imp-go" disabled>Import</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const SLEEP = ["", "dozed off", "out cold"];
+const WHO = { p1: "Person 1", p2: "Person 2", both: "Both" };
+const WHO_FILTER = { p1: ["p1", "both"], p2: ["p2", "both"], both: ["both"], "p1-only": ["p1"], "p2-only": ["p2"] };
+let impWho = "";
+// entries edited since the filters last changed stay listed, so rating one in the
+// "Not rated yet" view doesn't make it vanish
+let kept = new Set();
+let watches = [], titles = [], editing = null, form = { kind: "movie", rating: null, wife_asleep: 0, who: "both" };
+
+function starText(r) {
+  if (r == null) return "";
+  return "★".repeat(Math.floor(r)) + (r % 1 ? "½" : "");
+}
+function fmtDate(d) {
+  return new Date(d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+async function load() {
+  const [summary, list] = await Promise.all([api("GET", "/api/summary"), api("GET", "/api/watches")]);
+  watches = list; titles = summary.titles;
+  const s = summary.stats;
+  $("#t-month").textContent = s.this_month;
+  $("#t-total").textContent = s.total;
+  $("#t-total-l").textContent = `watched · ${s.movies} movies, ${s.shows} shows`;
+  $("#t-rating").textContent = s.avg_rating == null ? "–" : s.avg_rating.toFixed(1) + " ★";
+  $("#t-asleep").textContent = s.total ? Math.round(100 * s.asleep / s.total) + "%" : "–";
+  $("#t-asleep-l").textContent = `Person 2 didn't see the end · ${s.asleep} times`;
+
+  const box = $("#services"); box.replaceChildren();
+  const max = Math.max(1, ...s.services.map(x => x.count));
+  for (const x of s.services) {
+    const track = el("div", { className: "track" });
+    track.style.width = (100 * x.count / max) + "%";
+    const a = el("div", { className: "awake" }); a.style.flex = x.count - x.asleep;
+    const z = el("div", { className: "zz", title: `Person 2 didn't see the end of ${x.asleep}` }); z.style.flex = x.asleep;
+    track.append(a, z);
+    box.append(el("div", { className: "svc" }, el("div", { textContent: x.service }), el("div", {}, track),
+      el("div", { className: "meta", textContent: `${x.count}${x.avg_rating ? " · " + x.avg_rating.toFixed(1) + "★" : ""}` })));
+  }
+  if (!s.services.length) box.append(el("div", { className: "empty", textContent: "Nothing logged yet." }));
+  else box.append(el("div", { className: "legend" }, el("i", { style: "background:var(--bar)" }), "Person 2 saw the end", el("i", { style: "background:var(--sleep)" }), "Person 2 didn't see the end"));
+
+  const fs = $("#f-service"), cur = fs.value;
+  fs.replaceChildren(el("option", { value: "", textContent: "All services" }),
+    ...s.services.map(x => el("option", { value: x.service, textContent: x.service })));
+  fs.value = cur;
+  const sel = document.forms.form.service;
+  if (!sel.options.length) sel.append(...summary.services.map(v => el("option", { value: v, textContent: v })));
+  render();
+}
+
+function render() {
+  const q = $("#q").value.trim().toLowerCase(), svc = $("#f-service").value, kind = $("#f-kind").value, sl = $("#f-sleep").value, rated = $("#f-rated").value;
+  const who = $("#f-who").value, sort = $("#f-sort").value;
+  const epHits = w => q ? (w.episodes || []).filter(e => e.toLowerCase().includes(q)) : [];
+  const rows = watches.filter(w =>
+    (!q || (w.title + " " + (w.notes || "")).toLowerCase().includes(q) || epHits(w).length) &&
+    (!svc || w.service === svc) && (!kind || w.kind === kind) && (!who || WHO_FILTER[who].includes(w.who)) &&
+    (kept.has(w.id) || ((sl === "" || (sl === "1") === (w.wife_asleep > 0)) && (rated === "" || w.rating == null))));
+  const active = [q && `“${q}”`, svc, kind && (kind === "show" ? "shows" : "movies"),
+    sl && (sl === "1" ? "Person 2 didn't see the end" : "Person 2 saw the end"), rated && "not rated yet",
+    who && $("#f-who").selectedOptions[0].textContent].filter(Boolean);
+  const by = {
+    oldest: (a, b) => a.watched_on.localeCompare(b.watched_on) || a.id - b.id,
+    title: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
+    rating: (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || b.watched_on.localeCompare(a.watched_on),
+    added: (a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id,
+  }[sort];
+  if (by) rows.sort(by);  // otherwise as the server sends them: newest watched first
+  $("#filter-note").hidden = !active.length;
+  $("#filter-text").textContent = `Showing ${rows.length} of ${watches.length}: ${active.join(", ")}.`;
+  const list = $("#list"); list.replaceChildren();
+  for (const w of rows) {
+    const right = el("div", { className: "right" }, el("div", { className: "stars", textContent: starText(w.rating) || "—" }));
+    if (w.wife_asleep) right.append(el("div", {}, el("span", { className: "badge", textContent: "😴 " + SLEEP[w.wife_asleep] })));
+    const poster = w.poster
+      ? el("img", { className: "poster", src: "/posters/" + w.poster, alt: "", loading: "lazy" })
+      : el("div", { className: "poster", textContent: w.kind === "show" ? "📺" : "🎬" });
+    const item = el("button", { className: "item", type: "button", onclick: () => openForm(w) }, poster,
+      el("div", { className: "t" }, w.title, w.episode ? el("small", { textContent: " · " + w.episode }) : ""),
+      right,
+      el("div", { className: "sub", textContent: `${w.kind === "show" ? "Show" : "Movie"} · ${w.service} · ${fmtDate(w.watched_on)}${w.who ? " · " + WHO[w.who] : ""}` }));
+    if (w.notes) item.append(el("div", { className: "notes", textContent: w.notes }));
+    const hits = w.title.toLowerCase().includes(q) ? [] : epHits(w);
+    if (hits.length) item.append(el("div", { className: "notes", textContent: "Watched: " + hits.slice(0, 3).join(" · ") + (hits.length > 3 ? ` +${hits.length - 3} more` : "") }));
+    list.append(item);
+  }
+  if (!rows.length && q && watches.length) {
+    const raw = $("#q").value.trim();
+    list.append(el("div", { className: "empty" }, `“${raw}” isn't in your log. `,
+      el("button", { type: "button", className: "linkish", textContent: "Log it", onclick: () => {
+        openForm(null); titleIn.value = raw; titleIn.dispatchEvent(new Event("input"));
+      } })));
+  } else if (!rows.length) list.append(el("div", { className: "empty", textContent: watches.length ? "No matches." : "Log your first movie or show with the button up top." }));
+}
+
+// ---- form -------------------------------------------------------------------
+function setSeg(id, v) {
+  for (const b of document.querySelectorAll(`#${id} button`)) b.classList.toggle("on", b.dataset.v === String(v));
+}
+function setKind(v) { form.kind = v; setSeg("kind", v); $("#ep-wrap").hidden = v !== "show"; }
+function setSleep(v) { form.wife_asleep = +v; setSeg("sleep", v); }
+function setWho(v) { form.who = v || null; setSeg("who", v || ""); }
+$("#who").onclick = e => e.target.dataset.v && setWho(e.target.dataset.v);
+function setRating(r) {
+  form.rating = r;
+  document.querySelectorAll("#stars span").forEach((s, i) => s.style.setProperty("--fill", Math.max(0, Math.min(1, (r || 0) - i)) * 100 + "%"));
+  $("#star-v").textContent = r == null ? "not rated" : r + " / 5";
+}
+for (let i = 0; i < 5; i++) {
+  const s = el("span", { textContent: "★" });
+  s.addEventListener("click", e => {
+    const half = e.offsetX < s.offsetWidth / 2;
+    setRating(i + (half ? 0.5 : 1));
+  });
+  $("#stars").append(s);
+}
+$("#star-clear").onclick = () => setRating(null);
+$("#kind").onclick = e => { if (e.target.dataset.v) { setKind(e.target.dataset.v); useExisting(); } };
+$("#sleep").onclick = e => e.target.closest("button") && setSleep(e.target.closest("button").dataset.v);
+
+function openForm(w) {
+  editing = w ? w.id : null;
+  const f = document.forms.form;
+  f.title.value = w ? w.title : "";
+  f.episode.value = w ? w.episode || "" : "";
+  f.service.value = w ? w.service : (watches[0] ? watches[0].service : f.service.options[0].value);
+  f.watched_on.value = w ? w.watched_on : new Date().toLocaleDateString("en-CA");
+  f.notes.value = w ? w.notes || "" : "";
+  setKind(w ? w.kind : "movie"); setRating(w ? w.rating : null); setSleep(w ? w.wife_asleep : 0); setWho(w ? w.who : "both");
+  $("#dlg-title").textContent = w ? "Edit watch" : "Log a watch";
+  $("#dlg-img").hidden = !(w && w.poster); if (w && w.poster) $("#dlg-img").src = "/posters/" + w.poster;
+  $("#poster-again").hidden = !w; $("#poster-again").disabled = false;
+  $("#poster-again").textContent = w && w.poster ? "Wrong poster? Remove it" : "No poster yet. Look again";
+  $("#del").hidden = !w; $("#err").textContent = ""; showSugg([]); $("#title-note").hidden = true;
+  $("#dlg").showModal();
+  if (!w) f.title.focus();
+}
+// ---- title search: your own titles first, then TVmaze (shows) and Wikidata (movies)
+let sugg = [], suggOn = -1, suggTimer = 0, suggSeq = 0;
+const titleIn = document.forms.form.title;
+function showSugg(list, note) {
+  sugg = list; suggOn = -1;
+  const box = $("#sugg"); box.replaceChildren();
+  list.forEach((x, i) => {
+    const bits = [x.kind === "show" ? "Show" : "Movie", x.year, x.mine ? "logged before" : x.where].filter(Boolean);
+    box.append(el("div", { onmousedown: e => { e.preventDefault(); pickSugg(i); } }, x.title, el("small", { textContent: bits.join(" · ") })));
+  });
+  if (note) box.append(el("div", { className: "note", textContent: note }));
+  box.hidden = !list.length && !note;
+}
+// each title is listed once: adding one that's already logged updates it (the server
+// merges it), so show its rating, asleep mark and notes rather than blank ones
+function useExisting() {
+  const t = titleIn.value.trim().toLowerCase();
+  const w = !editing && watches.find(w => w.title.toLowerCase() === t && w.kind === form.kind);
+  $("#title-note").hidden = !w;
+  if (!w) return;
+  document.forms.form.service.value = w.service;
+  setRating(w.rating); setSleep(w.wife_asleep);
+  document.forms.form.notes.value = w.notes || "";
+}
+function pickSugg(i) {
+  const x = sugg[i]; if (!x) return;
+  titleIn.value = x.title; setKind(x.kind);
+  if (x.service) document.forms.form.service.value = x.service;
+  useExisting();
+  $("#sugg").hidden = true;
+  (x.kind === "show" ? document.forms.form.episode : document.forms.form.watched_on).focus();
+}
+titleIn.addEventListener("input", () => {
+  const q = titleIn.value.trim().toLowerCase(), seq = ++suggSeq;
+  clearTimeout(suggTimer);
+  if (q.length < 2) return showSugg([]);
+  const mine = titles.filter(t => t.title.toLowerCase().includes(q)).slice(0, 4).map(t => ({ ...t, mine: true }));
+  showSugg(mine, "Searching…");
+  suggTimer = setTimeout(async () => {
+    let found = [];
+    try { found = await api("GET", "/api/search?q=" + encodeURIComponent(q)); } catch (err) {}
+    if (seq !== suggSeq) return;  // a newer keystroke is already searching
+    const seen = new Set(mine.map(t => t.title.toLowerCase() + t.kind));
+    const list = mine.concat(found.filter(x => !seen.has(x.title.toLowerCase() + x.kind))).slice(0, 10);
+    showSugg(list, list.length ? "" : "No matches. Just type the title.");
+  }, 300);
+});
+titleIn.addEventListener("keydown", e => {
+  if ($("#sugg").hidden || !sugg.length) return;
+  const rows = $("#sugg").querySelectorAll("div:not(.note)");
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    suggOn = (suggOn + (e.key === "ArrowDown" ? 1 : -1) + sugg.length) % sugg.length;
+    rows.forEach((r, i) => r.classList.toggle("on", i === suggOn));
+    rows[suggOn].scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter" && suggOn >= 0) { e.preventDefault(); pickSugg(suggOn); }
+  else if (e.key === "Escape") { e.preventDefault(); $("#sugg").hidden = true; }
+});
+titleIn.addEventListener("blur", () => setTimeout(() => $("#sugg").hidden = true, 150));
+
+// typing a title you've logged before exactly fills in its kind and service
+document.forms.form.title.addEventListener("change", e => {
+  const t = titles.find(t => t.title.toLowerCase() === e.target.value.trim().toLowerCase());
+  if (t && !editing) { setKind(t.kind); document.forms.form.service.value = t.service; }
+  useExisting();
+});
+$("#poster-again").onclick = async () => {
+  const w = watches.find(w => w.id === editing), remove = !!(w && w.poster);
+  await api("POST", `/api/watches/${editing}/poster`, { remove });
+  $("#poster-again").disabled = true;
+  $("#poster-again").textContent = remove ? "Removed." : "Looking. Reload in a minute.";
+  if (remove) { $("#dlg-img").hidden = true; load(); }
+};
+$("#add").onclick = () => openForm(null);
+$("#cancel").onclick = () => $("#dlg").close();
+$("#del").onclick = async () => {
+  if (!confirm("Delete this entry?")) return;
+  await api("DELETE", `/api/watches/${editing}`);
+  $("#dlg").close(); load();
+};
+$("#form").onsubmit = async e => {
+  e.preventDefault();
+  const f = document.forms.form;
+  const body = { title: f.title.value, kind: form.kind, episode: f.episode.value, service: f.service.value,
+    watched_on: f.watched_on.value, rating: form.rating, wife_asleep: form.wife_asleep, notes: f.notes.value, who: form.who };
+  try {
+    const saved = await api(editing ? "PUT" : "POST", editing ? `/api/watches/${editing}` : "/api/watches", body);
+    kept.add(saved.id);
+    $("#dlg").close(); load();
+  } catch (err) { $("#err").textContent = err.message; }
+};
+for (const id of ["#q", "#f-service", "#f-kind", "#f-sleep", "#f-rated", "#f-who"]) $(id).addEventListener("input", () => { kept.clear(); render(); });
+$("#f-sort").addEventListener("input", render);
+// a search answers "did we watch this?", so it looks through everything, not the
+// "unrated Netflix" view an import leaves behind
+$("#q").addEventListener("focus", () => {
+  if ($("#f-rated").value || $("#f-sleep").value || $("#f-service").value) {
+    $("#f-rated").value = $("#f-sleep").value = $("#f-service").value = ""; render();
+  }
+});
+$("#clear-filters").onclick = () => {
+  for (const id of ["#q", "#f-service", "#f-kind", "#f-sleep", "#f-rated", "#f-who"]) $(id).value = "";
+  kept.clear(); render();
+};
+
+// ---- Netflix import ---------------------------------------------------------
+let impRows = [];
+function impCount() {
+  const n = impRows.filter(r => r.on).length, count = st => impRows.filter(r => r.status === st).length;
+  $("#imp-count").textContent = `${n} of ${impRows.length} selected · ${count("new")} new, ${count("update")} to update, ${count("logged")} already logged`;
+  $("#imp-go").disabled = !n;
+  $("#imp-go").textContent = n ? `Import ${n}` : "Import";
+}
+async function impPreview() {
+  const file = $("#imp-file").files[0];
+  $("#imp-err").textContent = ""; impRows = []; $("#imp-list").hidden = $("#imp-all-wrap").hidden = true; impCount();
+  if (!file) return;
+  if (!impWho) { $("#imp-err").textContent = "Pick whose profile it is first."; return; }
+  try {
+    impRows = await api("POST", "/api/import/netflix", { csv: await file.text(), who: impWho });
+  } catch (err) { $("#imp-err").textContent = err.message; return; }
+  const list = $("#imp-list"); list.replaceChildren();
+  for (const r of impRows) {
+    r.on = r.status !== "logged";
+    const cb = el("input", { type: "checkbox", checked: r.on, onchange: e => { r.on = e.target.checked; impCount(); } });
+    list.append(el("label", { className: "imp-row" + (r.status === "logged" ? " dup" : "") }, cb,
+      el("span", {}, r.title, r.episode ? el("small", { textContent: " · " + r.episode, style: "color:var(--muted)" }) : ""),
+      el("span", { className: "d", textContent: ({ update: "update · ", logged: "logged · " }[r.status] || "") + fmtDate(r.watched_on) })));
+  }
+  list.hidden = $("#imp-all-wrap").hidden = !impRows.length;
+  $("#imp-all").checked = true;
+  impCount();
+}
+$("#imp").onclick = () => {
+  $("#imp-file").value = ""; impWho = ""; setSeg("imp-who", "");
+  impPreview(); $("#imp-dlg").showModal();
+};
+$("#imp-cancel").onclick = () => $("#imp-dlg").close();
+$("#imp-file").onchange = impPreview;
+$("#imp-who").onclick = e => {
+  if (!e.target.dataset.v) return;
+  impWho = e.target.dataset.v; setSeg("imp-who", impWho); impPreview();
+};
+$("#imp-all").onchange = e => {
+  impRows.forEach(r => r.on = e.target.checked && r.status !== "logged");
+  $("#imp-list").querySelectorAll("input").forEach((cb, i) => cb.checked = impRows[i].on);
+  impCount();
+};
+$("#imp-form").onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const { added, updated } = await api("POST", "/api/import", { watches: impRows.filter(r => r.on) });
+    $("#imp-dlg").close();
+    await load();
+    $("#f-rated").value = "0"; $("#f-service").value = "Netflix"; render();
+    alert(`Netflix import: ${added} new, ${updated} updated. Showing the unrated ones, so you can tap each to rate it.`);
+  } catch (err) { $("#imp-err").textContent = err.message; }
+};
+load();
+</script>
+</body>
+</html>
