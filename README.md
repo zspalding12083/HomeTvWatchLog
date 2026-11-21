@@ -1,4 +1,19 @@
+<p align="left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/zs-logo-horizontal-dark-bg.svg">
+    <img alt="ZS Tech | Zachary Spalding Technology Services" src="assets/brand/zs-logo-horizontal-light-bg.svg" height="64">
+  </picture>
+</p>
+
 # Watch log
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
+  <img alt="Watch Log dashboard: totals, a per-service breakdown and the watch history" src="docs/screenshots/overview-light.png" width="720">
+</picture>
+
+The screenshots use made-up titles from `deploy/demo_data.py`; real watch data stays in the
+database on the Pi, which is never committed.
 
 **Dashboard: <http://10.0.0.10:9280>**
 
@@ -39,6 +54,7 @@ Python 3.10 stdlib + SQLite, no dependencies. Same layout as sogdash and netdash
 | `watchlog/static/index.html` | the dashboard |
 | `deploy/watchlog.service` | systemd unit (runs as user `watchlog`, port 9280) |
 | `STATUS.md` | where things stand and what is left |
+| `deploy/demo_data.py` | made-up entries for trying it out or screenshots |
 | `deploy/sync.sh` | `push` / `backup` / `check` against the Pi |
 
 API: `GET /api/watches`, `GET /api/summary`, `POST /api/watches`,
@@ -66,3 +82,12 @@ The laptop reaches the Pi with `ssh pi` (key `~/.ssh/id_ed25519_pi`, set up 2026
 
 After that, `deploy/sync.sh push` deploys changes and `deploy/sync.sh backup`
 snapshots the database into `backups/`.
+
+## License
+
+MIT, see [LICENSE](LICENSE). The ZS Tech mark files in `assets/brand/` are not covered by the MIT
+License: they are all rights reserved and may be used only to identify ZS Tech (Zachary Spalding Technology Services) and its projects.
+
+---
+
+<img src="assets/brand/zs-mark.svg" alt="" height="20" align="top"> A **ZS Tech** project · Zachary Spalding Technology Services · [zspalding12083](https://github.com/zspalding12083). Systems · Networks · Cloud · Open source.
