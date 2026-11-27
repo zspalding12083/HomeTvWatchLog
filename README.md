@@ -7,91 +7,139 @@
 
 # Watch log
 
+A self-hosted log of the movies and shows two people watch on the streaming services,
+made for a Raspberry Pi (or any small Linux box) on the home network. Python 3.10 standard
+library and SQLite, with no dependencies to install.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
   <img alt="Watch Log dashboard: totals, a per-service breakdown and the watch history" src="docs/screenshots/overview-light.png" width="720">
 </picture>
 
-The screenshots use made-up titles from `deploy/demo_data.py`; real watch data stays in the
-database on the Pi, which is never committed.
+The screenshots use made-up titles and names from `deploy/demo_data.py`. Real watch data
+stays in the database on the Pi, which is never committed.
 
-**Dashboard: <http://10.0.0.10:9280>**
+## Features
 
-A log of the movies and shows two people watch on the streaming services: a star rating
-(half stars allowed), who watched, and whether they saw the end (saw the end / dozed off / out cold).
-The dashboard shows totals, the average rating, how often the end got missed, a per-service
-breakdown, and a searchable, filterable history. Tap an entry to edit or delete it.
+- **Log a watch:** title, movie or show, episode, service, date, a star rating (half stars
+  allowed), who watched, whether they saw the end (saw the end / dozed off / out cold),
+  and notes. Tap an entry to edit or delete it.
+- **Title search while typing:** your own past titles first, then TVmaze for shows (it also
+  fills in the network or streamer) and Wikipedia/Wikidata for movies. Add a year to narrow
+  it ("old 2021"). Free and keyless; the server does the lookups and caches them.
+- **Netflix import:** on netflix.com, Account → your profile → Viewing activity →
+  **Download all**, then **Import** on the dashboard. You get a preview first. Each title
+  is listed once and episodes are grouped under their show, even when Netflix leaves out
+  the season. Titles already logged just get the new episodes and a newer date. Afterwards
+  the unrated ones are listed so you can tap through and rate them.
+- **Two people:** pick whose Netflix profile a file came from; a title in both profiles
+  becomes "Both".
+- **Settings (⚙):** the two names, and whose "saw the end" to track: one person ("Did Sam
+  see the end?") or whoever's watching ("Did you see the end?"). Names are stored in the
+  database, so changing them relabels every entry.
+- **Export CSV:** every entry as a spreadsheet-ready file, with names spelled out. Cells
+  that a spreadsheet would run as a formula (`=`, `+`, `-`, `@`) get a leading `'`.
+- **Posters:** looked up in the background (newest first, about one a second) from
+  Wikipedia and TVmaze and cached on disk. A wrong one can be removed and won't come back.
+- **Dashboard:** totals, the average rating, how often the end got missed, a per-service
+  breakdown, and a searchable history with filters (service, kind, rating, saw the end,
+  who watched) and sorting. Light and dark themes, and it works on a phone.
 
-**Settings (⚙):** the two people's names, and whose "saw the end" to track: one person
-("Did Sam see the end?") or whoever's watching ("Did you see the end?"). Names are stored
-in the database, so changing them relabels every entry; entries keep `p1` / `p2` / `both`.
+Max, Disney+, Paramount+, Peacock and Apple TV have no watch-history download, so those
+entries are typed in by hand.
 
-**Export CSV:** downloads every entry (title, kind, episodes, service, date, rating,
-saw the end, who, notes) as a spreadsheet-ready CSV. Cells that a spreadsheet would run
-as a formula (`=`, `+`, `-`, `@`) get a leading `'`.
+## Try it
 
-Entries are typed in by hand: Netflix, Max, Disney+ and the rest have no API for
-watch history. Typing a title searches your own past titles, then TVmaze (shows, with
-the network or streamer, which fills in the service) and Wikidata (movies). Both are
-free and keyless; the Pi does the lookups (`watchlog/lookup.py`) and caches them in memory.
+```bash
+python3 deploy/demo_data.py /tmp/demo.db
+python3 -m watchlog --db /tmp/demo.db --port 9280 --no-posters
+```
 
-**Netflix import:** on netflix.com, Account → your profile → Viewing activity → Download all,
-then use **Import** on the dashboard. It previews the rows (one per show per day by default),
-skips anything already logged (same title, day and service), then shows the unrated ones so
-you can tap through and rate them. Imported entries start as "saw the end".
+Then open <http://localhost:9280>. For a real log, point `--db` at a new file.
 
-Each title is listed once. Pick whose profile a file came from (person 1 or 2); a title in
-both profiles becomes "Both". Netflix writes some episodes without a season
-("Scrubs: My Last Day"); two or more titles sharing a name are taken as a show's episodes,
-with TVmaze deciding nested names ("Star Trek: Prodigy" vs "American Horror Story: Murder House").
+| Option | Default | What |
+|---|---|---|
+| `--db` | `watchlog.db` | SQLite database (created if missing) |
+| `--bind` | `0.0.0.0` | address to listen on |
+| `--port` | `9280` | port |
+| `--posters` | `posters/` next to the database | poster cache folder |
+| `--no-posters` | | don't look up posters |
+| `-v` | | debug logging |
 
-Posters are looked up in the background (newest watches first, about one a second) and cached
-on disk; a wrong one can be removed from the edit form and won't come back.
+Tests: `python3 -m unittest discover -s tests -t .`
 
-Python 3.10 stdlib + SQLite, no dependencies. Same layout as sogdash and netdash.
+## Security
+
+There's **no login, on purpose**: anyone on the home network can view and edit the log.
+What it does protect against is other web pages using it through your browser. It refuses
+cross-site writes, DNS rebinding, being loaded in a frame, and malformed requests, and it
+sends a strict Content-Security-Policy. Details in [SECURITY.md](SECURITY.md).
+
+- **Don't forward the port on your router.** It isn't built to face the internet.
+- Scripts that write to the API need `-H 'Content-Type: application/json'`.
+
+## Running it on a Pi
+
+`deploy/` has the scripts for a Pi reached over SSH. They default to `spalding@10.0.0.10`;
+set `PI=user@host` to use your own.
+
+```bash
+PI=pi@192.168.1.50 deploy/install.sh
+```
+
+`install.sh` runs once and asks for the Pi's sudo password once. It creates a `watchlog`
+system user, copies the code to `/opt/watchlog`, installs `deploy/watchlog.service`
+(port 9280, database in `/var/lib/watchlog/`), adds a passwordless rule for restarting
+the service, and starts it.
+
+After that:
+
+```bash
+PI=pi@192.168.1.50 deploy/sync.sh push
+```
+
+| Command | What |
+|---|---|
+| `deploy/sync.sh push` | run the tests, copy the code to the Pi, restart, check it's up |
+| `deploy/sync.sh backup` | snapshot the Pi's database into `backups/` (git ignores it; keeps 30) |
+| `deploy/sync.sh check` | show anything that differs between here and the Pi |
+
+## API
+
+JSON in and out. Writes need `Content-Type: application/json`.
+
+| Method and path | What |
+|---|---|
+| `GET /api/watches` | every entry, newest first |
+| `POST /api/watches` | add an entry (an existing title is updated instead) |
+| `PUT /api/watches/<id>` | edit an entry |
+| `DELETE /api/watches/<id>` | delete an entry |
+| `POST /api/watches/<id>/poster` | look for the poster again; `{"remove": true}` drops a wrong one for good |
+| `GET /api/summary` | totals, titles, services and settings |
+| `GET /api/search?q=` | title suggestions |
+| `POST /api/import/netflix` | preview a Netflix CSV: `{"csv": "...", "who": "p1"}` |
+| `POST /api/import` | save previewed rows: `{"watches": [...]}` |
+| `PUT /api/settings` | `{"person1": "...", "person2": "...", "end_person": "" \| "p1" \| "p2"}` |
+| `GET /api/export.csv` | every entry as a CSV download |
+
+An entry: `title`, `kind` (`movie` / `show`), `episode`, `service`, `watched_on`
+(YYYY-MM-DD), `rating` (0.5–5 in halves, or null), `missed_end` (0 saw the end, 1 dozed off,
+2 out cold), `who` (`p1` / `p2` / `both`, or null) and `notes`.
 
 ## Files
 
 | Path | What |
 |---|---|
-| `watchlog/store.py` | SQLite schema (`watches` table), validation, stats |
-| `watchlog/server.py` | HTTP server and JSON API |
+| `watchlog/store.py` | SQLite schema, validation, stats, settings, CSV export |
+| `watchlog/server.py` | HTTP server, JSON API and the security checks |
 | `watchlog/netflix.py` | Netflix viewing-activity CSV parser |
-| `watchlog/lookup.py` | title search (TVmaze + Wikidata) |
-| `watchlog/posters.py` | poster lookups (Wikipedia, TVmaze), cached in `/var/lib/watchlog/posters` |
-| `watchlog/static/index.html` | the dashboard |
-| `deploy/watchlog.service` | systemd unit (runs as user `watchlog`, port 9280) |
+| `watchlog/lookup.py` | title search (TVmaze, Wikipedia, Wikidata) |
+| `watchlog/posters.py` | poster lookups (Wikipedia, TVmaze) and the disk cache |
+| `watchlog/static/index.html` | the dashboard (one page, no build step) |
+| `deploy/` | install, sync, systemd unit and demo data |
+| `tests/` | unit and API tests |
 | `STATUS.md` | where things stand and what is left |
-| `SECURITY.md` | security review: no login, what's protected and what isn't |
-| `deploy/demo_data.py` | made-up entries for trying it out or screenshots |
-| `deploy/sync.sh` | `push` / `backup` / `check` against the Pi |
-
-API: `GET /api/watches`, `GET /api/summary`, `POST /api/watches`,
-`PUT /api/watches/<id>`, `DELETE /api/watches/<id>`, `GET /api/search?q=`,
-`POST /api/import/netflix` (preview), `POST /api/import` (`{"watches": [...]}`),
-`PUT /api/settings` (`{"person1", "person2", "end_person": "" | "p1" | "p2"}`), `GET /api/export.csv`.
-
-## Run locally
-
-```bash
-python3 -m unittest discover -s tests -t .
-python3 -m watchlog --db /tmp/watchlog.db --port 9280
-```
-
-## First-time setup on the Pi (10.0.0.10)
-
-Once, from the laptop (asks for the Pi's sudo password once): creates the `watchlog`
-user, copies the code to `/opt/watchlog`, adds the passwordless restart rule, and
-enables the service.
-
-```bash
-deploy/install.sh
-```
-
-The laptop reaches the Pi with `ssh pi` (key `~/.ssh/id_ed25519_pi`, set up 2026-10-27).
-
-After that, `deploy/sync.sh push` deploys changes and `deploy/sync.sh backup`
-snapshots the database into `backups/`.
+| `SECURITY.md` | security review: what's protected and what isn't |
 
 ## License
 
