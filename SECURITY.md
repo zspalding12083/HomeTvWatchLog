@@ -1,7 +1,8 @@
 # Security status (2026-11-27)
 
 Reviewed and fixed 2026-11-26. Re-tested 2026-11-27 against the live Pi, after the
-settings and CSV export were added: every check below passed.
+settings and CSV export were added: every check below passed. A second pass the same day
+also reviewed the Pi's setup and found three more things to tighten (16–18 below).
 
 Watch log has **no login, on purpose**. It runs on the home network (on a Pi, port 9280),
 and anyone on that network can view and edit it. That's the intended
@@ -30,6 +31,9 @@ laptop at home could send requests to the Pi. The fixes below shut that off.
 | 13 | **Spreadsheet formulas in the CSV export.** A title from an imported Netflix file like `=HYPERLINK(...)` runs when the export is opened in Excel or Sheets. | New feature (2026-11-27) | Cells starting with `=` `+` `-` `@` get a leading `'` |
 | 14 | **Settings input.** Names shown on every page. | New feature (2026-11-27) | Max 30 characters, can't be empty, `end_person` must be `""`, `p1` or `p2`; shown with `textContent` only |
 | 15 | **Personal data in the public repo.** | Our first names were in the code, screenshots, commit messages and history | Removed from the files and from every commit; the names live only in the Pi's database |
+| 16 | **`Origin: null` writes.** Sandboxed iframes and local files send `Origin: null`, which skipped the origin check. Browsers were still stopped by the JSON-only rule and the missing CORS preflight answer, so this wasn't usable, but it was one layer short. | Let through to the next check | Refused (403) |
+| 17 | **Database readable by every account on the Pi** (`/var/lib/watchlog` was `755`, the database `644`). | Any local user could copy the history | `StateDirectoryMode=0750`, `UMask=0027` in the service file |
+| 18 | **No systemd sandbox.** If the service were ever broken into, it could read home folders and write anywhere `watchlog` can. | `systemd-analyze security`: 9.0 UNSAFE | Read-only system, no home folders, no devices or new privileges, system-call filter, network limited to IPv4/IPv6: **1.4 OK** |
 
 ## How the fixes work (`watchlog/server.py`)
 
@@ -53,6 +57,23 @@ laptop at home could send requests to the Pi. The fixes below shut that off.
 `curl` and scripts on the home network still work as before. They just need
 `-H 'Content-Type: application/json'` on writes, and they send no `Origin` header.
 
+## The Pi itself (2026-11-27)
+
+| Check | Result |
+|---|---|
+| Service user | Runs as its own `watchlog` system user, not root and not a login user |
+| Sudo rule | Passwordless only for `systemctl restart watchlog` |
+| Security updates | None pending |
+| Listening | Port 9280 (the dashboard) and 22 (SSH) only |
+| Secrets in the repo | None in any commit (scanned for keys, tokens, passwords, private keys); no database file was ever committed |
+| Data folder | Was readable by everyone on the Pi; fixed by 17 once the new service file is installed |
+
+The new service file (`deploy/watchlog.service`) was tested on a laptop with the
+system-call filter, memory and network limits applied: the page, saving, CSV export and
+live title lookups all worked. The filesystem limits (`ProtectSystem=strict`,
+`ProtectHome`, etc.) can only be checked on the Pi once it's installed.
+`deploy/sync.sh push` doesn't install service files, because that needs the Pi's sudo password.
+
 ## Privacy
 
 - Real watch data and the names are only in the Pi's database (`/var/lib/watchlog/`) and the
@@ -73,12 +94,18 @@ laptop at home could send requests to the Pi. The fixes below shut that off.
   many lookups to TVmaze and Wikipedia. The lookups are cached, and TVmaze "too many
   requests" replies pause them.
 - **Don't forward port 9280 on the router.** Nothing here is built to face the internet.
+- **The Netflix import can make many TVmaze lookups** (about 0.6 s each) for files with lots of
+  ambiguous titles, which ties up one request for a while. Someone on the home network could
+  use that to slow the Pi. Accepted: only people at home can reach it.
+- **Not checked:** the router's port forwarding and the Pi's SSH settings (they need admin
+  access), and whether a firewall (`ufw`) is on.
 
 ## Tests
 
 `tests/test_watchlog.py`:
 
-- `SecurityTest`: cross-site writes, rebinding hosts, bad bodies and response headers.
+- `SecurityTest`: cross-site writes (including `Origin: null`), rebinding hosts, bad bodies
+  and response headers.
 - `SettingsExportTest`: settings validation, and formula escaping in the CSV export.
 
 All 39 tests pass: `python3 -m unittest discover -s tests -t .`

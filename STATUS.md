@@ -33,6 +33,11 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 
 ## Recent changes
 
+- **2026-11-27, second security check:** the live Pi passed every earlier check again. New fixes:
+  `Origin: null` writes are refused (in the code), and a hardened service file keeps the
+  database private and sandboxes the service (exposure score 9.0 → 1.4). The Pi itself is in
+  good shape: own service user, narrow sudo rule, no pending security updates, no secrets
+  in the repo. Details in [SECURITY.md](SECURITY.md).
 - **2026-11-27, security re-test:** every check in [SECURITY.md](SECURITY.md) was run
   again against the live Pi, including the new settings and CSV export, and all passed.
   Nothing was changed by the tests. SECURITY.md now also covers CSV formula escaping,
@@ -60,6 +65,10 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 
 ## To do
 
+- **Install the hardened service file on the Pi.** It needs the Pi's sudo password, so
+  `deploy/sync.sh push` can't do it:
+  `rsync deploy/watchlog.service spalding@10.0.0.10:/tmp/ && ssh -t spalding@10.0.0.10 'sudo install -m 644 /tmp/watchlog.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart watchlog && systemctl is-active watchlog'`
+- **Check the router** doesn't forward port 9280, and that the Pi's SSH only takes keys.
 - **Re-import both Netflix files** with person 1 or person 2 picked, to fill in who watched.
   Ratings and marks you've set are kept.
 - **Rate the 1,173 unrated entries.** Filter "Rated or not" → "Not rated yet" and tap

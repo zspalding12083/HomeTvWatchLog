@@ -207,6 +207,8 @@ class SecurityTest(ApiTest):
         self.assertEqual(self.raw("POST", "/api/watches", body, {
             "Content-Type": "application/json", "Origin": "https://evil.example"})[0], 403)
         self.assertEqual(self.raw("DELETE", "/api/watches/1", b"", {"Origin": "http://evil.example"})[0], 403)
+        self.assertEqual(self.raw("POST", "/api/watches", body, {  # sandboxed iframe on another site
+            "Content-Type": "application/json", "Origin": "null"})[0], 403)
         self.assertEqual(self.raw("POST", "/api/import", body, {
             "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"})[0], 403)
         self.assertEqual(self.call("GET", "/api/watches")[1], [])

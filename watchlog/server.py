@@ -75,8 +75,9 @@ def make_handler(store, posters=None):
                 return False
             if write:
                 origin = self.headers.get("Origin")
-                if origin and origin != "null" and \
-                        urllib.parse.urlsplit(origin).netloc.lower() != (self.headers.get("Host") or "").lower():
+                # "null" comes from sandboxed frames and local files: never the dashboard itself
+                if origin and (origin == "null" or
+                               urllib.parse.urlsplit(origin).netloc.lower() != (self.headers.get("Host") or "").lower()):
                     self.send_json({"error": "cross-site request refused"}, 403)
                     return False
                 if self.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site"):
