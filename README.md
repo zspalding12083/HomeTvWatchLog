@@ -73,10 +73,14 @@ Tests: `python3 -m unittest discover -s tests -t .`
 There's **no login, on purpose**: anyone on the home network can view and edit the log.
 What it does protect against is other web pages using it through your browser. It refuses
 cross-site writes, DNS rebinding, being loaded in a frame, and malformed requests, and it
-sends a strict Content-Security-Policy. Details in [SECURITY.md](SECURITY.md).
+sends a strict Content-Security-Policy. The CSV export escapes cells a spreadsheet would
+run as formulas. Details, and the latest test results, in [SECURITY.md](SECURITY.md).
 
 - **Don't forward the port on your router.** It isn't built to face the internet.
 - Scripts that write to the API need `-H 'Content-Type: application/json'`.
+- **Your data stays on your Pi.** The log, the names and the backups are never committed
+  (`backups/` is git-ignored). A CSV export holds your whole history with names, so keep
+  downloaded copies somewhere private.
 
 ## Running it on a Pi
 
