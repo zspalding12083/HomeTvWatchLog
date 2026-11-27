@@ -1,4 +1,4 @@
-# Watch log status (2026-11-26)
+# Watch log status (2026-11-27)
 
 Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
 
@@ -15,6 +15,9 @@ Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
 - **Posters:** cached on the Pi, fetched in the background. A wrong poster can be removed.
 - **History:** search ("did we watch…?"), filters for service, kind, rating, saw the end
   and who watched, plus sort (newest watched first by default).
+- **Settings (⚙):** the two names and whose "saw the end" is tracked are settings now,
+  not code. On the Pi they're Person 1, Person 2 and Person 2, set by the upgrade on first start.
+- **Export CSV:** every entry as a CSV download, from the button up top.
 - **Totals:** a per-service breakdown, the average rating, and how often Person 2 didn't
   see the end.
 
@@ -42,6 +45,6 @@ Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
 
 ## Deploying
 
-- Tests: `python3 -m unittest discover -s tests -t .` (35 tests, all passing)
+- Tests: `python3 -m unittest discover -s tests -t .` (39 tests, all passing)
 - `deploy/sync.sh backup` snapshots the database into `backups/`, which git ignores.
 - `deploy/sync.sh push` copies the code to the Pi and restarts the service.

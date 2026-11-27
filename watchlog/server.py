@@ -1,4 +1,5 @@
 """Watch log dashboard (port 9280), stdlib only."""
+import datetime as dt
 import http.server
 import ipaddress
 import json
@@ -142,7 +143,17 @@ def make_handler(store, posters=None):
                 self.send_json(lookup.search(q))
             elif path == "/api/summary":
                 self.send_json({"stats": store.stats(), "titles": store.titles(),
-                                "kinds": KINDS, "services": SERVICES})
+                                "kinds": KINDS, "services": SERVICES, "settings": store.settings()})
+            elif path == "/api/export.csv":
+                body = ("\ufeff" + store.export_csv()).encode()  # BOM so Excel reads it as UTF-8
+                self.send_response(200)
+                self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition",
+                                 f'attachment; filename="watchlog-{dt.date.today().isoformat()}.csv"')
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
             else:
                 self.send_json({"error": "not found"}, 404)
 
@@ -184,6 +195,11 @@ def make_handler(store, posters=None):
         def do_PUT(self):
             if not self.allowed(write=True):
                 return
+            if self.path == "/api/settings":
+                try:
+                    return self.send_json(store.save_settings(self.read_json()))
+                except (ValueError, TypeError) as e:
+                    return self.send_json({"error": str(e)}, 400)
             m = WATCH_ID.match(self.path)
             if not m:
                 return self.send_json({"error": "not found"}, 404)

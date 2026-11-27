@@ -111,6 +111,10 @@ label, .lbl { font-size: 13px; color: var(--muted); display: flex; flex-directio
 .err { color: #dc2626; font-size: 13px; min-height: 1em; }
 @media (max-width: 640px) {
   .wide { display: none; }
+  header { flex-wrap: wrap; }
+  .head-btns { flex: 1 1 100%; }
+  .head-btns button { flex: 1 1 auto; padding: 8px 10px; }
+  .head-btns #settings { flex: 0 0 auto; }
   .tiles { grid-template-columns: repeat(2, 1fr); }
   .svc { grid-template-columns: 80px 1fr 84px; }
 }
@@ -120,14 +124,14 @@ label, .lbl { font-size: 13px; color: var(--muted); display: flex; flex-directio
 <main>
   <header>
     <h1>🍿 Watch Log</h1>
-    <div class="row head-btns"><button id="imp">Import</button><button class="primary" id="add">+ Log<span class="wide"> a watch</span></button></div>
+    <div class="row head-btns"><button id="settings" title="Names and settings" aria-label="Settings">⚙</button><button id="export" title="Download every entry as a CSV file">Export<span class="wide"> CSV</span></button><button id="imp">Import</button><button class="primary" id="add">+ Log<span class="wide"> a watch</span></button></div>
   </header>
 
   <div class="tiles">
     <div class="tile"><div class="n" id="t-month">–</div><div class="l">this month</div></div>
     <div class="tile"><div class="n" id="t-total">–</div><div class="l" id="t-total-l">watched</div></div>
     <div class="tile"><div class="n" id="t-rating">–</div><div class="l">average rating</div></div>
-    <div class="tile"><div class="n" id="t-asleep">–</div><div class="l" id="t-asleep-l">Person 2 didn't see the end</div></div>
+    <div class="tile"><div class="n" id="t-asleep">–</div><div class="l" id="t-asleep-l">didn't see the end</div></div>
   </div>
 
   <h2>By service</h2>
@@ -138,9 +142,9 @@ label, .lbl { font-size: 13px; color: var(--muted); display: flex; flex-directio
     <input id="q" type="search" placeholder="Did we watch…? Search titles, episodes, notes">
     <select id="f-service"><option value="">All services</option></select>
     <select id="f-kind"><option value="">Movies and shows</option><option value="movie">Movies</option><option value="show">Shows</option></select>
-    <select id="f-sleep"><option value="">Saw the end or not</option><option value="0">Person 2 saw the end</option><option value="1">Person 2 didn't see the end</option></select>
+    <select id="f-sleep"><option value="">Saw the end or not</option><option value="0" id="f-sleep-0">Saw the end</option><option value="1" id="f-sleep-1">Didn't see the end</option></select>
     <select id="f-rated"><option value="">Rated or not</option><option value="0">Not rated yet</option></select>
-    <select id="f-who"><option value="">Anyone watched</option><option value="p1">Person 1 watched</option><option value="p2">Person 2 watched</option><option value="both">Watched together</option><option value="p1-only">Person 1 on his own</option><option value="p2-only">Person 2 on her own</option></select>
+    <select id="f-who"><option value="">Anyone watched</option></select>
     <select id="f-sort"><option value="">Newest watched first</option><option value="oldest">Oldest watched first</option><option value="title">Title A–Z</option><option value="rating">Highest rated</option><option value="added">Recently added</option></select>
   </div>
   <div class="filter-note" id="filter-note" hidden><span id="filter-text"></span> <button type="button" class="linkish" id="clear-filters">Show all</button></div>
@@ -175,11 +179,11 @@ label, .lbl { font-size: 13px; color: var(--muted); display: flex; flex-directio
         <button type="button" id="star-clear">clear</button>
       </div>
     </div>
-    <div class="lbl">Did Person 2 see the end?
+    <div class="lbl"><span id="end-q">Did you see the end?</span>
       <div class="seg sleep" id="sleep"><button type="button" data-v="0">Saw the end</button><button type="button" data-v="1">Dozed off</button><button type="button" data-v="2">Out cold 😴</button></div>
     </div>
     <div class="lbl">Who watched?
-      <div class="seg" id="who"><button type="button" data-v="p1">Person 1</button><button type="button" data-v="p2">Person 2</button><button type="button" data-v="both">Both</button></div>
+      <div class="seg" id="who"><button type="button" data-v="p1" class="name1">Person 1</button><button type="button" data-v="p2" class="name2">Person 2</button><button type="button" data-v="both">Both</button></div>
     </div>
     <label>Notes <textarea name="notes" rows="2"></textarea></label>
     <div class="err" id="err"></div>
@@ -196,7 +200,7 @@ label, .lbl { font-size: 13px; color: var(--muted); display: flex; flex-directio
     <h3>Import Netflix history</h3>
     <p class="hint">On netflix.com: Account → your profile → Viewing activity → <b>Download all</b>. Then pick that file here. Each title is listed once: titles already in the log just get any new episodes and a newer date, and keep their rating. Do it again for each profile.</p>
     <div class="lbl">Whose Netflix profile is this file from?
-      <div class="seg" id="imp-who"><button type="button" data-v="p1">Person 1</button><button type="button" data-v="p2">Person 2</button></div>
+      <div class="seg" id="imp-who"><button type="button" data-v="p1" class="name1">Person 1</button><button type="button" data-v="p2" class="name2">Person 2</button></div>
     </div>
     <input type="file" id="imp-file" accept=".csv,text/csv">
     <label class="check" id="imp-all-wrap" hidden><input type="checkbox" id="imp-all" checked> <span id="imp-count"></span></label>
@@ -209,12 +213,52 @@ label, .lbl { font-size: 13px; color: var(--muted); display: flex; flex-directio
   </form>
 </dialog>
 
+<dialog id="set-dlg">
+  <form id="set-form" method="dialog">
+    <h3>Settings</h3>
+    <p class="hint">The two people who share this log. Their names show up in "Who watched?", the filters and the Netflix import.</p>
+    <div class="row">
+      <label>Person 1 <input name="person1" maxlength="30" required></label>
+      <label>Person 2 <input name="person2" maxlength="30" required></label>
+    </div>
+    <label>Track who saw the end
+      <select name="end_person">
+        <option value="">Whoever's watching ("Did you see the end?")</option>
+        <option value="p1" class="name1">Person 1</option>
+        <option value="p2" class="name2">Person 2</option>
+      </select>
+    </label>
+    <div class="err" id="set-err"></div>
+    <div class="actions">
+      <button type="button" id="set-cancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
 const $ = s => document.querySelector(s);
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 const SLEEP = ["", "dozed off", "out cold"];
-const WHO = { p1: "Person 1", p2: "Person 2", both: "Both" };
 const WHO_FILTER = { p1: ["p1", "both"], p2: ["p2", "both"], both: ["both"], "p1-only": ["p1"], "p2-only": ["p2"] };
+let settings = { person1: "Person 1", person2: "Person 2", end_person: "" };
+let WHO = {};
+// "Sam didn't see the end" when it's tracked for one person, "Didn't see the end" otherwise
+const ender = () => settings.end_person ? WHO[settings.end_person] : "";
+const endLabel = (saw) => ender() ? `${ender()} ${saw ? "saw" : "didn't see"} the end` : (saw ? "Saw the end" : "Didn't see the end");
+function applySettings(st) {
+  settings = st;
+  WHO = { p1: st.person1, p2: st.person2, both: "Both" };
+  document.querySelectorAll(".name1").forEach(e => e.textContent = st.person1);
+  document.querySelectorAll(".name2").forEach(e => e.textContent = st.person2);
+  $("#end-q").textContent = ender() ? `Did ${ender()} see the end?` : "Did you see the end?";
+  $("#f-sleep-0").textContent = endLabel(true); $("#f-sleep-1").textContent = endLabel(false);
+  const fw = $("#f-who"), cur = fw.value;
+  fw.replaceChildren(...[["", "Anyone watched"], ["p1", `${st.person1} watched`], ["p2", `${st.person2} watched`],
+    ["both", "Watched together"], ["p1-only", `${st.person1} on their own`], ["p2-only", `${st.person2} on their own`]]
+    .map(([value, textContent]) => el("option", { value, textContent })));
+  fw.value = cur;
+}
 let impWho = "";
 // entries edited since the filters last changed stay listed, so rating one in the
 // "Not rated yet" view doesn't make it vanish
@@ -237,14 +281,14 @@ async function api(method, url, body) {
 
 async function load() {
   const [summary, list] = await Promise.all([api("GET", "/api/summary"), api("GET", "/api/watches")]);
-  watches = list; titles = summary.titles;
+  watches = list; titles = summary.titles; applySettings(summary.settings);
   const s = summary.stats;
   $("#t-month").textContent = s.this_month;
   $("#t-total").textContent = s.total;
   $("#t-total-l").textContent = `watched · ${s.movies} movies, ${s.shows} shows`;
   $("#t-rating").textContent = s.avg_rating == null ? "–" : s.avg_rating.toFixed(1) + " ★";
   $("#t-asleep").textContent = s.total ? Math.round(100 * s.asleep / s.total) + "%" : "–";
-  $("#t-asleep-l").textContent = `Person 2 didn't see the end · ${s.asleep} times`;
+  $("#t-asleep-l").textContent = `${endLabel(false)} · ${s.asleep} times`;
 
   const box = $("#services"); box.replaceChildren();
   const max = Math.max(1, ...s.services.map(x => x.count));
@@ -252,13 +296,13 @@ async function load() {
     const track = el("div", { className: "track" });
     track.style.width = (100 * x.count / max) + "%";
     const a = el("div", { className: "awake" }); a.style.flex = x.count - x.asleep;
-    const z = el("div", { className: "zz", title: `Person 2 didn't see the end of ${x.asleep}` }); z.style.flex = x.asleep;
+    const z = el("div", { className: "zz", title: `${endLabel(false)}: ${x.asleep}` }); z.style.flex = x.asleep;
     track.append(a, z);
     box.append(el("div", { className: "svc" }, el("div", { textContent: x.service }), el("div", {}, track),
       el("div", { className: "meta", textContent: `${x.count}${x.avg_rating ? " · " + x.avg_rating.toFixed(1) + "★" : ""}` })));
   }
   if (!s.services.length) box.append(el("div", { className: "empty", textContent: "Nothing logged yet." }));
-  else box.append(el("div", { className: "legend" }, el("i", { style: "background:var(--bar)" }), "Person 2 saw the end", el("i", { style: "background:var(--sleep)" }), "Person 2 didn't see the end"));
+  else box.append(el("div", { className: "legend" }, el("i", { style: "background:var(--bar)" }), endLabel(true), el("i", { style: "background:var(--sleep)" }), endLabel(false)));
 
   const fs = $("#f-service"), cur = fs.value;
   fs.replaceChildren(el("option", { value: "", textContent: "All services" }),
@@ -278,7 +322,7 @@ function render() {
     (!svc || w.service === svc) && (!kind || w.kind === kind) && (!who || WHO_FILTER[who].includes(w.who)) &&
     (kept.has(w.id) || ((sl === "" || (sl === "1") === (w.wife_asleep > 0)) && (rated === "" || w.rating == null))));
   const active = [q && `“${q}”`, svc, kind && (kind === "show" ? "shows" : "movies"),
-    sl && (sl === "1" ? "Person 2 didn't see the end" : "Person 2 saw the end"), rated && "not rated yet",
+    sl && (ender() ? endLabel(sl !== "1") : endLabel(sl !== "1").toLowerCase()), rated && "not rated yet",
     who && $("#f-who").selectedOptions[0].textContent].filter(Boolean);
   const by = {
     oldest: (a, b) => a.watched_on.localeCompare(b.watched_on) || a.id - b.id,
@@ -513,6 +557,23 @@ $("#imp-form").onsubmit = async e => {
     $("#f-rated").value = "0"; $("#f-service").value = "Netflix"; render();
     alert(`Netflix import: ${added} new, ${updated} updated. Showing the unrated ones, so you can tap each to rate it.`);
   } catch (err) { $("#imp-err").textContent = err.message; }
+};
+// ---- export and settings -------------------------------------------------------
+$("#export").onclick = () => { location.href = "/api/export.csv"; };
+$("#settings").onclick = () => {
+  const f = document.forms["set-form"];
+  f.person1.value = settings.person1; f.person2.value = settings.person2; f.end_person.value = settings.end_person;
+  $("#set-err").textContent = ""; $("#set-dlg").showModal();
+};
+$("#set-cancel").onclick = () => $("#set-dlg").close();
+$("#set-form").onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    await api("PUT", "/api/settings", { person1: f.person1.value, person2: f.person2.value, end_person: f.end_person.value });
+    $("#set-dlg").close();
+    await load();
+  } catch (err) { $("#set-err").textContent = err.message; }
 };
 load();
 </script>

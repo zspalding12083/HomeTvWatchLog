@@ -37,6 +37,7 @@ def main(path):
     if os.path.exists(path):
         sys.exit(f"{path} already exists; pick a new file so nothing real is overwritten")
     store, today = Store(path), datetime.date.today()
+    store.save_settings({"person1": "Alex", "person2": "Sam", "end_person": "p2"})
     for title, kind, episode, service, ago, rating, sleep, who, notes in DEMO:
         store.add({"title": title, "kind": kind, "episode": episode, "service": service,
                    "watched_on": (today - datetime.timedelta(days=ago)).isoformat(), "rating": rating,

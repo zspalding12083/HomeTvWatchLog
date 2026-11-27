@@ -132,6 +132,62 @@ class ApiTest(unittest.TestCase):
         self.assertIn(b"Watch Log", page)
 
 
+class SettingsExportTest(unittest.TestCase):
+    def setUp(self):
+        self.s = Store(":memory:")
+
+    def test_settings(self):
+        self.assertEqual(self.s.settings(), {"person1": "Person 1", "person2": "Person 2", "end_person": ""})
+        self.assertEqual(self.s.save_settings({"person1": "  Alex  ", "end_person": "p2"}),
+                         {"person1": "Alex", "person2": "Person 2", "end_person": "p2"})
+        for bad in ({"person1": ""}, {"person2": "   "}, {"end_person": "bob"}):
+            with self.assertRaises(ValueError):
+                self.s.save_settings(bad)
+        self.assertEqual(self.s.settings()["person1"], "Alex")
+
+    def test_old_names_become_settings(self):
+        import tempfile, os, sqlite3
+        path = os.path.join(tempfile.mkdtemp(), "old.db")
+        Store(path).add({"title": "Dune", "service": "Max", "who": "p1"})
+        with sqlite3.connect(path) as db:  # as a database from before the names were settings
+            db.execute("UPDATE watches SET who = 'p2'")
+            db.execute("DELETE FROM settings")
+        s = Store(path)
+        self.assertEqual(s.all()[0]["who"], "p2")
+        self.assertEqual(s.settings(), {"person1": "Person 1", "person2": "Person 2", "end_person": "p2"})
+        self.assertEqual(s.add({"title": "Old", "service": "Max", "who": "p1"})["who"], "p1")
+
+    def test_export_csv(self):
+        import csv, io
+        self.s.save_settings({"person1": "Alex", "person2": "Sam"})
+        self.s.add({"title": "Dune", "service": "Max", "rating": 4.5, "wife_asleep": 1, "who": "p2",
+                    "watched_on": "2026-01-02", "notes": "great, \"really\""})
+        self.s.add({"title": "=HYPERLINK(\"http://x\")", "service": "Netflix", "watched_on": "2026-01-01"})
+        rows = list(csv.reader(io.StringIO(self.s.export_csv())))
+        self.assertEqual(rows[0][:3], ["Title", "Kind", "Episode"])
+        self.assertEqual(rows[1][0], "'=HYPERLINK(\"http://x\")")  # no formulas in a spreadsheet
+        self.assertEqual(rows[2], ["Dune", "movie", "", "", "Max", "2026-01-02", "4.5", "dozed off", "Sam",
+                                   'great, "really"', rows[2][10]])
+
+    def test_api(self):
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.s))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            c = http.client.HTTPConnection("127.0.0.1", httpd.server_port)
+            c.request("PUT", "/api/settings", json.dumps({"person1": "Alex"}), {"Content-Type": "application/json"})
+            self.assertEqual(json.loads(c.getresponse().read())["person1"], "Alex")
+            c.request("GET", "/api/summary")
+            self.assertEqual(json.loads(c.getresponse().read())["settings"]["person1"], "Alex")
+            c.request("GET", "/api/export.csv")
+            r = c.getresponse()
+            self.assertEqual(r.status, 200)
+            self.assertIn("attachment", r.headers["Content-Disposition"])
+            self.assertTrue(r.read().decode("utf-8").startswith("\ufeffTitle,"))
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+
 class SecurityTest(ApiTest):
     """No login, so the server must refuse what other web pages could make a browser send."""
     WATCH = {"title": "Dune", "service": "Max"}

@@ -17,10 +17,18 @@ database on the Pi, which is never committed.
 
 **Dashboard: <http://10.0.0.10:9280>**
 
-A log of the movies and shows we watch on the streaming services: a star rating
-(half stars allowed) and whether Person 2 saw the end (saw the end / dozed off / out cold).
-The dashboard shows totals, the average rating, how often Person 2 didn't see the end, a per-service
+A log of the movies and shows two people watch on the streaming services: a star rating
+(half stars allowed), who watched, and whether they saw the end (saw the end / dozed off / out cold).
+The dashboard shows totals, the average rating, how often the end got missed, a per-service
 breakdown, and a searchable, filterable history. Tap an entry to edit or delete it.
+
+**Settings (⚙):** the two people's names, and whose "saw the end" to track: one person
+("Did Sam see the end?") or whoever's watching ("Did you see the end?"). Names are stored
+in the database, so changing them relabels every entry; entries keep `p1` / `p2` / `both`.
+
+**Export CSV:** downloads every entry (title, kind, episodes, service, date, rating,
+saw the end, who, notes) as a spreadsheet-ready CSV. Cells that a spreadsheet would run
+as a formula (`=`, `+`, `-`, `@`) get a leading `'`.
 
 Entries are typed in by hand: Netflix, Max, Disney+ and the rest have no API for
 watch history. Typing a title searches your own past titles, then TVmaze (shows, with
@@ -32,7 +40,7 @@ then use **Import** on the dashboard. It previews the rows (one per show per day
 skips anything already logged (same title, day and service), then shows the unrated ones so
 you can tap through and rate them. Imported entries start as "saw the end".
 
-Each title is listed once. Pick whose profile a file came from (Person 1 or Person 2); a title in
+Each title is listed once. Pick whose profile a file came from (person 1 or 2); a title in
 both profiles becomes "Both". Netflix writes some episodes without a season
 ("Scrubs: My Last Day"); two or more titles sharing a name are taken as a show's episodes,
 with TVmaze deciding nested names ("Star Trek: Prodigy" vs "American Horror Story: Murder House").
@@ -60,7 +68,8 @@ Python 3.10 stdlib + SQLite, no dependencies. Same layout as sogdash and netdash
 
 API: `GET /api/watches`, `GET /api/summary`, `POST /api/watches`,
 `PUT /api/watches/<id>`, `DELETE /api/watches/<id>`, `GET /api/search?q=`,
-`POST /api/import/netflix` (preview), `POST /api/import` (`{"watches": [...]}`).
+`POST /api/import/netflix` (preview), `POST /api/import` (`{"watches": [...]}`),
+`PUT /api/settings` (`{"person1", "person2", "end_person": "" | "p1" | "p2"}`), `GET /api/export.csv`.
 
 ## Run locally
 

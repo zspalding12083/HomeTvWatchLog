@@ -1,4 +1,6 @@
+import csv
 import datetime as dt
+import io
 import json
 import re
 import sqlite3
@@ -13,11 +15,11 @@ CREATE TABLE IF NOT EXISTS watches (
     service     TEXT NOT NULL,           -- Netflix, Max, ...
     watched_on  TEXT NOT NULL,           -- YYYY-MM-DD
     rating      REAL,                    -- 0.5 to 5 stars, NULL = not rated yet
-    wife_asleep INTEGER NOT NULL DEFAULT 0,  -- 0 awake, 1 dozed off partway, 2 out cold
+    wife_asleep INTEGER NOT NULL DEFAULT 0,  -- did they see the end: 0 yes, 1 dozed off, 2 out cold
     notes       TEXT,
     created_at  TEXT NOT NULL,
     episode_list TEXT,                   -- shows: JSON list of episodes seen (from imports)
-    who         TEXT                     -- p1 / p2 / both; NULL = not recorded
+    who         TEXT                     -- p1 / p2 / both (names in settings); NULL = not recorded
 );
 CREATE INDEX IF NOT EXISTS watches_on ON watches(watched_on);
 CREATE TABLE IF NOT EXISTS posters (     -- one per title, shared by its entries
@@ -25,6 +27,10 @@ CREATE TABLE IF NOT EXISTS posters (     -- one per title, shared by its entries
     file    TEXT,                        -- in the posters folder; NULL = none found / failed
     status  TEXT NOT NULL,               -- ok / none / error / removed (wrong one, by hand)
     checked TEXT NOT NULL                -- YYYY-MM-DD, or date and time for errors
+);
+CREATE TABLE IF NOT EXISTS settings (    -- names shown on the dashboard, see Store.settings()
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
 """
 KINDS = ("movie", "show")
@@ -65,10 +71,14 @@ def episode_label(episodes):
 
 FIELDS = ("title", "kind", "episode", "service", "watched_on", "rating", "wife_asleep", "notes", "who")
 WHO = ("p1", "p2", "both")
+OLD_WHO = {"p1": "p1", "p2": "p2"}  # before the names were settings (2026-11-27)
+DEFAULT_SETTINGS = {"person1": "Person 1", "person2": "Person 2",
+                    "end_person": ""}  # whose "saw the end" it is: "", "p1" or "p2"
+SAW_END = ("saw the end", "dozed off", "out cold")
 
 
 def combine_who(a, b):
-    """Person 1's profile + Person 2's profile = both."""
+    """Person 1's profile + person 2's profile = both."""
     return a if not b or a == b else b if not a else "both"
 
 
@@ -107,10 +117,22 @@ def clean(data: dict) -> dict:
     out["wife_asleep"] = asleep
     out["notes"] = str(data.get("notes") or "").strip()[:2000] or None
     who = data.get("who") or None
+    who = OLD_WHO.get(who, who)
     if who not in (None,) + WHO:
         raise ValueError("who must be p1, p2 or both")
     out["who"] = who
     return out
+
+
+def safe_cell(v):
+    """Spreadsheets run cells starting with = + - @ as formulas; a title from a Netflix
+    file shouldn't be able to do that. Numbers are left alone."""
+    if v is None:
+        return ""
+    if isinstance(v, (int, float)):
+        return v
+    v = str(v)
+    return "'" + v if v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
 
 
 class Store:
@@ -127,6 +149,13 @@ class Store:
             with self.db:
                 self.db.execute("ALTER TABLE watches ADD COLUMN episode_list TEXT")
             self.merge_duplicates()
+        if self.db.execute("SELECT 1 FROM watches WHERE who IN ('p1', 'p2') LIMIT 1").fetchone():
+            # names became settings: keep this household's names and whose end it tracks
+            with self.db:
+                for old, new in OLD_WHO.items():
+                    self.db.execute("UPDATE watches SET who = ? WHERE who = ?", (new, old))
+                self.db.executemany("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+                                    [("person1", "Person 1"), ("person2", "Person 2"), ("end_person", "p2")])
 
     def merge_duplicates(self):
         """Collapse entries for the same title into the oldest one: latest date and
@@ -316,6 +345,41 @@ class Store:
         """So the next lookup tries again (the "find poster again" button)."""
         with self.lock, self.db:
             self.db.execute("DELETE FROM posters WHERE key = ?", (poster_key(title, kind),))
+
+    def settings(self):
+        stored = dict(self.db.execute("SELECT key, value FROM settings").fetchall())
+        return {k: stored.get(k, v) for k, v in DEFAULT_SETTINGS.items()}
+
+    def save_settings(self, data):
+        new = self.settings()
+        for k in ("person1", "person2"):
+            if k in data:
+                name = " ".join(str(data[k] or "").split())[:30]
+                if not name:
+                    raise ValueError("names can't be empty")
+                new[k] = name
+        if "end_person" in data:
+            if data["end_person"] not in ("", "p1", "p2"):
+                raise ValueError("end_person must be '', p1 or p2")
+            new["end_person"] = data["end_person"]
+        with self.lock, self.db:
+            self.db.executemany("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", new.items())
+        return new
+
+    def export_csv(self):
+        """Every entry as CSV, names spelled out, ready for a spreadsheet."""
+        st = self.settings()
+        names = {"p1": st["person1"], "p2": st["person2"], "both": "Both"}
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["Title", "Kind", "Episode", "Episodes seen", "Service", "Watched on", "Rating",
+                    "Saw the end", "Who watched", "Notes", "Added"])
+        for r in sorted(self.all(), key=lambda r: (r["watched_on"], r["id"])):
+            w.writerow([safe_cell(v) for v in (
+                r["title"], r["kind"], r["episode"], "; ".join(r["episodes"]), r["service"],
+                r["watched_on"], r["rating"], SAW_END[r["wife_asleep"]], names.get(r["who"], ""),
+                r["notes"], r["created_at"])])
+        return out.getvalue()
 
     def titles(self):
         """Distinct titles with their last kind and service, for the form's autocomplete."""
