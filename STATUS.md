@@ -2,8 +2,7 @@
 
 Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
 The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on the Pi
-(checked with `deploy/sync.sh check`, 2026-11-27). The Pi still has the old service file:
-the hardened one in `deploy/` needs installing (see To do).
+(checked with `deploy/sync.sh check`, 2026-11-27), and so is the hardened service file.
 
 ## What works
 
@@ -34,6 +33,12 @@ the hardened one in `deploy/` needs installing (see To do).
 
 ## Recent changes
 
+- **2026-11-27, hardened service installed:** the sandboxed service file is on the Pi and
+  checked there (exposure score 1.5, data folder private to the `watchlog` group, page,
+  posters, lookups and export all working). Because the data folder is now private, the SSH
+  login was added to the `watchlog` group so backups keep working; `deploy/install.sh` now
+  does this on new installs. First backup after: `backups/watchlog-20261127-1806.db`
+  (integrity ok, 1,198 entries).
 - **2026-11-27, second security check:** the live Pi passed every earlier check again. New fixes:
   `Origin: null` writes are refused (in the code), and a hardened service file keeps the
   database private and sandboxes the service (exposure score 9.0 → 1.4). The Pi itself is in
@@ -69,9 +74,6 @@ the hardened one in `deploy/` needs installing (see To do).
 
 ## To do
 
-- **Install the hardened service file on the Pi.** It needs the Pi's sudo password, so
-  `deploy/sync.sh push` can't do it:
-  `rsync deploy/watchlog.service spalding@10.0.0.10:/tmp/ && ssh -t spalding@10.0.0.10 'sudo install -m 644 /tmp/watchlog.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart watchlog && systemctl is-active watchlog'`
 - **Check the router** doesn't forward port 9280, and that the Pi's SSH only takes keys.
 - **Re-import both Netflix files** with person 1 or person 2 picked, to fill in who watched.
   Ratings and marks you've set are kept.
@@ -86,5 +88,6 @@ the hardened one in `deploy/` needs installing (see To do).
 
 - Tests: `python3 -m unittest discover -s tests -t .` (39 tests, all passing)
 - `deploy/sync.sh backup` snapshots the database into `backups/`, which git ignores.
+  The SSH login must be in the Pi's `watchlog` group to read it (`install.sh` sets this up).
 - `deploy/sync.sh push` runs the tests, copies the code to the Pi and restarts the service.
 - Push to both remotes: `git push origin main` (watchlog) and `git push hometv main` (HomeTvWatchLog).

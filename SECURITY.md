@@ -32,8 +32,8 @@ laptop at home could send requests to the Pi. The fixes below shut that off.
 | 14 | **Settings input.** Names shown on every page. | New feature (2026-11-27) | Max 30 characters, can't be empty, `end_person` must be `""`, `p1` or `p2`; shown with `textContent` only |
 | 15 | **Personal data in the public repo.** | Our first names were in the code, screenshots, commit messages and history | Removed from the files and from every commit; the names live only in the Pi's database |
 | 16 | **`Origin: null` writes.** Sandboxed iframes and local files send `Origin: null`, which skipped the origin check. Browsers were still stopped by the JSON-only rule and the missing CORS preflight answer, so this wasn't usable, but it was one layer short. | Let through to the next check | Refused (403) |
-| 17 | **Database readable by every account on the Pi** (`/var/lib/watchlog` was `755`, the database `644`). | Any local user could copy the history | `StateDirectoryMode=0750`, `UMask=0027` in the service file |
-| 18 | **No systemd sandbox.** If the service were ever broken into, it could read home folders and write anywhere `watchlog` can. | `systemd-analyze security`: 9.0 UNSAFE | Read-only system, no home folders, no devices or new privileges, system-call filter, network limited to IPv4/IPv6: **1.4 OK** |
+| 17 | **Database readable by every account on the Pi** (`/var/lib/watchlog` was `755`, the database `644`). | Any local user could copy the history | `StateDirectoryMode=0750`, `UMask=0027` in the service file. **Installed on the Pi and checked:** the folder is `drwxr-x--- watchlog:watchlog` |
+| 18 | **No systemd sandbox.** If the service were ever broken into, it could read home folders and write anywhere `watchlog` can. | `systemd-analyze security`: 9.0 UNSAFE | Read-only system, no home folders, no devices or new privileges, system-call filter, network limited to IPv4/IPv6: **1.4 OK** (1.5 on the Pi, where it's installed) |
 
 ## How the fixes work (`watchlog/server.py`)
 
@@ -66,13 +66,15 @@ laptop at home could send requests to the Pi. The fixes below shut that off.
 | Security updates | None pending |
 | Listening | Port 9280 (the dashboard) and 22 (SSH) only |
 | Secrets in the repo | None in any commit (scanned for keys, tokens, passwords, private keys); no database file was ever committed |
-| Data folder | Was readable by everyone on the Pi; fixed by 17 once the new service file is installed |
+| Data folder | Private to the service and the `watchlog` group since the new service file was installed (17) |
+| Backups | The SSH login is in the `watchlog` group so `deploy/sync.sh backup` can read the database; a backup taken afterwards passed `integrity_check` with all 1,198 entries |
 
-The new service file (`deploy/watchlog.service`) was tested on a laptop with the
-system-call filter, memory and network limits applied: the page, saving, CSV export and
-live title lookups all worked. The filesystem limits (`ProtectSystem=strict`,
-`ProtectHome`, etc.) can only be checked on the Pi once it's installed.
-`deploy/sync.sh push` doesn't install service files, because that needs the Pi's sudo password.
+The hardened service file (`deploy/watchlog.service`) is installed on the Pi and was
+checked there: the sandbox settings are in effect, the login account can't read the data
+folder without the `watchlog` group, and the page, saving, posters, title lookups, CSV export
+and the `Origin: null` refusal all work. `deploy/sync.sh check` shows the Pi's unit is the
+same as the repo's. `deploy/sync.sh push` doesn't install service files, because that needs
+the Pi's sudo password; `deploy/install.sh` does, and adds the login to the `watchlog` group.
 
 ## Privacy
 

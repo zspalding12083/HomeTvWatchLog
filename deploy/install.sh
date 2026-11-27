@@ -11,6 +11,9 @@ python3 -m unittest discover -s tests -t . -q
 rsync -a --exclude __pycache__ --exclude '*.pyc' watchlog deploy/watchlog.service "$PI:/tmp/watchlog-install/"
 ssh -t "$PI" 'set -e
     id watchlog >/dev/null 2>&1 || sudo useradd --system --no-create-home --shell /usr/sbin/nologin watchlog
+    # the data folder is private to the watchlog group; this login joins it so
+    # deploy/sync.sh backup can still read the database
+    sudo usermod -aG watchlog "$(id -un)"
     sudo mkdir -p /opt/watchlog
     sudo chown spalding: /opt/watchlog
     rm -rf /opt/watchlog/watchlog && mv /tmp/watchlog-install/watchlog /opt/watchlog/

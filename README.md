@@ -93,8 +93,9 @@ PI=pi@192.168.1.50 deploy/install.sh
 
 `install.sh` runs once and asks for the Pi's sudo password once. It creates a `watchlog`
 system user, copies the code to `/opt/watchlog`, installs `deploy/watchlog.service`
-(port 9280, database in `/var/lib/watchlog/`), adds a passwordless rule for restarting
-the service, and starts it.
+(port 9280, database in `/var/lib/watchlog/`, private to the `watchlog` group), adds your
+login to that group so backups can read the database, adds a passwordless rule for
+restarting the service, and starts it.
 
 After that:
 
