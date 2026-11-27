@@ -9,7 +9,7 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
   with half stars, whether they saw the end (saw the end / dozed off / out cold),
   who watched (person 1, person 2 or both), and notes.
 - **Settings (⚙):** the two people's names, and whose "saw the end" is tracked: one person
-  or whoever's watching. On the Pi: Person 1 and Person 2, tracking Person 2.
+  or whoever's watching. On the Pi they're set to the two of us, tracking person 2.
 - **Title search while typing:** your own titles come first, then TVmaze for shows and
   Wikipedia/Wikidata for movies. Typing a year narrows the results ("old 2021").
 - **Netflix import:** from the viewing-activity CSV, with a preview before anything is
@@ -32,7 +32,7 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 
 ## Recent changes
 
-- **2026-11-27:** names became settings and CSV export was added. Old `p1` / `p2`
+- **2026-11-27:** names became settings and CSV export was added. The old who-watched
   values were converted to `p1` / `p2` on the Pi, and the counts matched before and after.
   Backup taken first: `backups/watchlog-20261127-1230.db`.
   The `wife_asleep` column was renamed to `missed_end`, in the database and the API.
@@ -43,7 +43,7 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 
 ## To do
 
-- **Re-import both Netflix files** with Person 1 or Person 2 picked, to fill in who watched.
+- **Re-import both Netflix files** with person 1 or person 2 picked, to fill in who watched.
   Ratings and marks you've set are kept.
 - **Rate the 1,173 unrated entries.** Filter "Rated or not" → "Not rated yet" and tap
   through them.
@@ -54,7 +54,7 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 
 ## Deploying
 
-- Tests: `python3 -m unittest discover -s tests -t .` (40 tests, all passing)
+- Tests: `python3 -m unittest discover -s tests -t .` (39 tests, all passing)
 - `deploy/sync.sh backup` snapshots the database into `backups/`, which git ignores.
 - `deploy/sync.sh push` runs the tests, copies the code to the Pi and restarts the service.
 - Push to both remotes: `git push origin main` (watchlog) and `git push hometv main` (HomeTvWatchLog).

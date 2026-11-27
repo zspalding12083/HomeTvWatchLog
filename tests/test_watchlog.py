@@ -145,18 +145,6 @@ class SettingsExportTest(unittest.TestCase):
                 self.s.save_settings(bad)
         self.assertEqual(self.s.settings()["person1"], "Alex")
 
-    def test_old_names_become_settings(self):
-        import tempfile, os, sqlite3
-        path = os.path.join(tempfile.mkdtemp(), "old.db")
-        Store(path).add({"title": "Dune", "service": "Max", "who": "p1"})
-        with sqlite3.connect(path) as db:  # as a database from before the names were settings
-            db.execute("UPDATE watches SET who = 'p2'")
-            db.execute("DELETE FROM settings")
-        s = Store(path)
-        self.assertEqual(s.all()[0]["who"], "p2")
-        self.assertEqual(s.settings(), {"person1": "Person 1", "person2": "Person 2", "end_person": "p2"})
-        self.assertEqual(s.add({"title": "Old", "service": "Max", "who": "p1"})["who"], "p1")
-
     def test_old_column_renamed(self):
         import tempfile, os, sqlite3
         path = os.path.join(tempfile.mkdtemp(), "old.db")

@@ -71,7 +71,6 @@ def episode_label(episodes):
 
 FIELDS = ("title", "kind", "episode", "service", "watched_on", "rating", "missed_end", "notes", "who")
 WHO = ("p1", "p2", "both")
-OLD_WHO = {"p1": "p1", "p2": "p2"}  # before the names were settings (2026-11-27)
 DEFAULT_SETTINGS = {"person1": "Person 1", "person2": "Person 2",
                     "end_person": ""}  # whose "saw the end" it is: "", "p1" or "p2"
 SAW_END = ("saw the end", "dozed off", "out cold")
@@ -118,7 +117,6 @@ def clean(data: dict) -> dict:
     out["missed_end"] = missed
     out["notes"] = str(data.get("notes") or "").strip()[:2000] or None
     who = data.get("who") or None
-    who = OLD_WHO.get(who, who)
     if who not in (None,) + WHO:
         raise ValueError("who must be p1, p2 or both")
     out["who"] = who
@@ -153,13 +151,6 @@ class Store:
             with self.db:
                 self.db.execute("ALTER TABLE watches ADD COLUMN episode_list TEXT")
             self.merge_duplicates()
-        if self.db.execute("SELECT 1 FROM watches WHERE who IN ('p1', 'p2') LIMIT 1").fetchone():
-            # names became settings: keep this household's names and whose end it tracks
-            with self.db:
-                for old, new in OLD_WHO.items():
-                    self.db.execute("UPDATE watches SET who = ? WHERE who = ?", (new, old))
-                self.db.executemany("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
-                                    [("person1", "Person 1"), ("person2", "Person 2"), ("end_person", "p2")])
 
     def merge_duplicates(self):
         """Collapse entries for the same title into the oldest one: latest date and
