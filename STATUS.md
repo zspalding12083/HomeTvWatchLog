@@ -1,7 +1,9 @@
 # Watch log status (2026-11-27)
 
 Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
-The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on the Pi.
+The code on GitHub (`watchlog` and `HomeTvWatchLog`) matches the Pi, except for the last
+commit. That one only removes the one-time name upgrade, which already ran on the Pi.
+Deploy it next time anything else goes out.
 
 ## What works
 
@@ -32,6 +34,12 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 
 ## Recent changes
 
+- **2026-11-27, privacy:** our first names are out of the repo and its git history.
+  All commits were rewritten, so the old screenshots and commit messages are gone too,
+  and both GitHub repos were force-pushed. The one-time upgrade that knew the names was
+  removed, and the local backup of the old history was deleted.
+  GitHub may keep the old commits reachable by direct link for a while; GitHub Support
+  can purge them. Any copy of the repo cloned before this still has the old history.
 - **2026-11-27:** names became settings and CSV export was added. The old who-watched
   values were converted to `p1` / `p2` on the Pi, and the counts matched before and after.
   Backup taken first: `backups/watchlog-20261127-1230.db`.
