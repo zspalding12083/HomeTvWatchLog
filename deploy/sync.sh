@@ -2,7 +2,7 @@
 # Keep this folder (the source of truth and local backup) and the Orange Pi in step.
 #
 #   deploy/sync.sh push     test locally, copy code to the Pi, restart, check it's up
-#   deploy/sync.sh backup   copy the Pi's database and service file into backups/ and deploy/
+#   deploy/sync.sh backup   copy the Pi's database and service file into backups/
 #   deploy/sync.sh check    show anything that differs between here and the Pi
 #
 # Needs: SSH keys for spalding@10.0.0.10, /opt/watchlog/watchlog owned by spalding,
@@ -32,8 +32,11 @@ backup() {
     ssh "$PI" "python3 -c 'import sqlite3; s=sqlite3.connect(\"file:$DB?mode=ro\", uri=True); d=sqlite3.connect(\"/tmp/watchlog-backup.db\"); s.backup(d); d.close()'"
     rsync -a "$PI:/tmp/watchlog-backup.db" "backups/watchlog-$stamp.db"
     ssh "$PI" 'rm -f /tmp/watchlog-backup.db'
-    rsync -a "$PI:/etc/systemd/system/watchlog.service" deploy/watchlog.service
+    # the Pi's unit goes into backups/, never over deploy/watchlog.service (the repo's
+    # version may be newer and not installed yet; "check" shows any difference)
+    rsync -a "$PI:/etc/systemd/system/watchlog.service" "backups/watchlog-$stamp.service"
     ls -1t backups/watchlog-*.db | tail -n +$((KEEP + 1)) | xargs -r rm --
+    ls -1t backups/watchlog-*.service | tail -n +$((KEEP + 1)) | xargs -r rm --
     echo "backed up to backups/watchlog-$stamp.db ($(du -h "backups/watchlog-$stamp.db" | cut -f1))"
 }
 
@@ -42,7 +45,7 @@ check() {
     "${RSYNC[@]}" -nci "$PI:$CODE/" watchlog/ | grep -v '^\.' || echo "  none"
     echo "service file:"
     ssh "$PI" cat /etc/systemd/system/watchlog.service | diff -q - deploy/watchlog.service >/dev/null \
-        && echo "  same" || echo "  DIFFERENT (run: deploy/sync.sh backup to pull it)"
+        && echo "  same" || echo "  DIFFERENT (install deploy/watchlog.service on the Pi; see STATUS.md)"
 }
 
 case "${1:-}" in

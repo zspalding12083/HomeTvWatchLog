@@ -105,7 +105,7 @@ PI=pi@192.168.1.50 deploy/sync.sh push
 | Command | What |
 |---|---|
 | `deploy/sync.sh push` | run the tests, copy the code to the Pi, restart, check it's up |
-| `deploy/sync.sh backup` | snapshot the Pi's database into `backups/` (git ignores it; keeps 30) |
+| `deploy/sync.sh backup` | snapshot the Pi's database and service file into `backups/` (git ignores it; keeps 30) |
 | `deploy/sync.sh check` | show anything that differs between here and the Pi |
 
 ## API

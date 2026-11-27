@@ -2,7 +2,8 @@
 
 Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
 The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on the Pi
-(checked with `deploy/sync.sh check`, 2026-11-27; later commits only change docs).
+(checked with `deploy/sync.sh check`, 2026-11-27). The Pi still has the old service file:
+the hardened one in `deploy/` needs installing (see To do).
 
 ## What works
 
@@ -38,6 +39,9 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
   database private and sandboxes the service (exposure score 9.0 → 1.4). The Pi itself is in
   good shape: own service user, narrow sudo rule, no pending security updates, no secrets
   in the repo. Details in [SECURITY.md](SECURITY.md).
+  The `Origin: null` fix is deployed and the live Pi now refuses those writes (403).
+  `deploy/sync.sh backup` no longer copies the Pi's service file over the repo's; it saves
+  it in `backups/` instead, so a backup can't undo the hardening.
 - **2026-11-27, security re-test:** every check in [SECURITY.md](SECURITY.md) was run
   again against the live Pi, including the new settings and CSV export, and all passed.
   Nothing was changed by the tests. SECURITY.md now also covers CSV formula escaping,
