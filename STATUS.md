@@ -33,6 +33,10 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 
 ## Recent changes
 
+- **2026-11-27, security re-test:** every check in [SECURITY.md](SECURITY.md) was run
+  again against the live Pi, including the new settings and CSV export, and all passed.
+  Nothing was changed by the tests. SECURITY.md now also covers CSV formula escaping,
+  settings input and a privacy section, and no longer has the Pi's address.
 - **2026-11-27, README:** rewritten for people outside the house: a features list,
   a "Try it" with demo data, the command-line options, security notes, `PI=user@host`
   for installing on another Pi, and a table of every API endpoint. Our Pi's address and
