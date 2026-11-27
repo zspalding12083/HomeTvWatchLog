@@ -1,9 +1,8 @@
 # Watch log status (2026-11-27)
 
 Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
-The code on GitHub (`watchlog` and `HomeTvWatchLog`) matches the Pi, except for the last
-commit. That one only removes the one-time name upgrade, which already ran on the Pi.
-Deploy it next time anything else goes out.
+The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on the Pi
+(checked with `deploy/sync.sh check`, 2026-11-27).
 
 ## What works
 
