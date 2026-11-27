@@ -41,7 +41,7 @@ def main(path):
     for title, kind, episode, service, ago, rating, sleep, who, notes in DEMO:
         store.add({"title": title, "kind": kind, "episode": episode, "service": service,
                    "watched_on": (today - datetime.timedelta(days=ago)).isoformat(), "rating": rating,
-                   "wife_asleep": sleep, "who": who, "notes": notes})
+                   "missed_end": sleep, "who": who, "notes": notes})
     print(f"{len(DEMO)} made-up entries in {path}")
 
 

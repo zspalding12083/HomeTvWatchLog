@@ -263,7 +263,7 @@ let impWho = "";
 // entries edited since the filters last changed stay listed, so rating one in the
 // "Not rated yet" view doesn't make it vanish
 let kept = new Set();
-let watches = [], titles = [], editing = null, form = { kind: "movie", rating: null, wife_asleep: 0, who: "both" };
+let watches = [], titles = [], editing = null, form = { kind: "movie", rating: null, missed_end: 0, who: "both" };
 
 function starText(r) {
   if (r == null) return "";
@@ -320,7 +320,7 @@ function render() {
   const rows = watches.filter(w =>
     (!q || (w.title + " " + (w.notes || "")).toLowerCase().includes(q) || epHits(w).length) &&
     (!svc || w.service === svc) && (!kind || w.kind === kind) && (!who || WHO_FILTER[who].includes(w.who)) &&
-    (kept.has(w.id) || ((sl === "" || (sl === "1") === (w.wife_asleep > 0)) && (rated === "" || w.rating == null))));
+    (kept.has(w.id) || ((sl === "" || (sl === "1") === (w.missed_end > 0)) && (rated === "" || w.rating == null))));
   const active = [q && `“${q}”`, svc, kind && (kind === "show" ? "shows" : "movies"),
     sl && (ender() ? endLabel(sl !== "1") : endLabel(sl !== "1").toLowerCase()), rated && "not rated yet",
     who && $("#f-who").selectedOptions[0].textContent].filter(Boolean);
@@ -336,7 +336,7 @@ function render() {
   const list = $("#list"); list.replaceChildren();
   for (const w of rows) {
     const right = el("div", { className: "right" }, el("div", { className: "stars", textContent: starText(w.rating) || "—" }));
-    if (w.wife_asleep) right.append(el("div", {}, el("span", { className: "badge", textContent: "😴 " + SLEEP[w.wife_asleep] })));
+    if (w.missed_end) right.append(el("div", {}, el("span", { className: "badge", textContent: "😴 " + SLEEP[w.missed_end] })));
     const poster = w.poster
       ? el("img", { className: "poster", src: "/posters/" + w.poster, alt: "", loading: "lazy" })
       : el("div", { className: "poster", textContent: w.kind === "show" ? "📺" : "🎬" });
@@ -363,7 +363,7 @@ function setSeg(id, v) {
   for (const b of document.querySelectorAll(`#${id} button`)) b.classList.toggle("on", b.dataset.v === String(v));
 }
 function setKind(v) { form.kind = v; setSeg("kind", v); $("#ep-wrap").hidden = v !== "show"; }
-function setSleep(v) { form.wife_asleep = +v; setSeg("sleep", v); }
+function setSleep(v) { form.missed_end = +v; setSeg("sleep", v); }
 function setWho(v) { form.who = v || null; setSeg("who", v || ""); }
 $("#who").onclick = e => e.target.dataset.v && setWho(e.target.dataset.v);
 function setRating(r) {
@@ -391,7 +391,7 @@ function openForm(w) {
   f.service.value = w ? w.service : (watches[0] ? watches[0].service : f.service.options[0].value);
   f.watched_on.value = w ? w.watched_on : new Date().toLocaleDateString("en-CA");
   f.notes.value = w ? w.notes || "" : "";
-  setKind(w ? w.kind : "movie"); setRating(w ? w.rating : null); setSleep(w ? w.wife_asleep : 0); setWho(w ? w.who : "both");
+  setKind(w ? w.kind : "movie"); setRating(w ? w.rating : null); setSleep(w ? w.missed_end : 0); setWho(w ? w.who : "both");
   $("#dlg-title").textContent = w ? "Edit watch" : "Log a watch";
   $("#dlg-img").hidden = !(w && w.poster); if (w && w.poster) $("#dlg-img").src = "/posters/" + w.poster;
   $("#poster-again").hidden = !w; $("#poster-again").disabled = false;
@@ -421,7 +421,7 @@ function useExisting() {
   $("#title-note").hidden = !w;
   if (!w) return;
   document.forms.form.service.value = w.service;
-  setRating(w.rating); setSleep(w.wife_asleep);
+  setRating(w.rating); setSleep(w.missed_end);
   document.forms.form.notes.value = w.notes || "";
 }
 function pickSugg(i) {
@@ -484,7 +484,7 @@ $("#form").onsubmit = async e => {
   e.preventDefault();
   const f = document.forms.form;
   const body = { title: f.title.value, kind: form.kind, episode: f.episode.value, service: f.service.value,
-    watched_on: f.watched_on.value, rating: form.rating, wife_asleep: form.wife_asleep, notes: f.notes.value, who: form.who };
+    watched_on: f.watched_on.value, rating: form.rating, missed_end: form.missed_end, notes: f.notes.value, who: form.who };
   try {
     const saved = await api(editing ? "PUT" : "POST", editing ? `/api/watches/${editing}` : "/api/watches", body);
     kept.add(saved.id);

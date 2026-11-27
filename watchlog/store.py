@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS watches (
     service     TEXT NOT NULL,           -- Netflix, Max, ...
     watched_on  TEXT NOT NULL,           -- YYYY-MM-DD
     rating      REAL,                    -- 0.5 to 5 stars, NULL = not rated yet
-    wife_asleep INTEGER NOT NULL DEFAULT 0,  -- did they see the end: 0 yes, 1 dozed off, 2 out cold
+    missed_end  INTEGER NOT NULL DEFAULT 0,  -- did they see the end: 0 yes, 1 dozed off, 2 out cold
     notes       TEXT,
     created_at  TEXT NOT NULL,
     episode_list TEXT,                   -- shows: JSON list of episodes seen (from imports)
@@ -69,7 +69,7 @@ def episode_label(episodes):
     return (f"{seasons} · " if seasons else "") + f"{len(episodes)} episodes"[:40]
 
 
-FIELDS = ("title", "kind", "episode", "service", "watched_on", "rating", "wife_asleep", "notes", "who")
+FIELDS = ("title", "kind", "episode", "service", "watched_on", "rating", "missed_end", "notes", "who")
 WHO = ("p1", "p2", "both")
 OLD_WHO = {"p1": "p1", "p2": "p2"}  # before the names were settings (2026-11-27)
 DEFAULT_SETTINGS = {"person1": "Person 1", "person2": "Person 2",
@@ -111,10 +111,11 @@ def clean(data: dict) -> dict:
         if not 0.5 <= r <= 5 or r * 2 != int(r * 2):
             raise ValueError("rating must be 0.5 to 5 in half stars")
         out["rating"] = r
-    asleep = int(data.get("wife_asleep") or 0)
-    if asleep not in (0, 1, 2):
-        raise ValueError("wife_asleep must be 0, 1 or 2")
-    out["wife_asleep"] = asleep
+    missed = data.get("missed_end", data.get("wife_asleep"))  # its name before 2026-11-27
+    missed = int(missed or 0)
+    if missed not in (0, 1, 2):
+        raise ValueError("missed_end must be 0, 1 or 2")
+    out["missed_end"] = missed
     out["notes"] = str(data.get("notes") or "").strip()[:2000] or None
     who = data.get("who") or None
     who = OLD_WHO.get(who, who)
@@ -142,6 +143,9 @@ class Store:
         self.db.executescript(SCHEMA)
         cols = {r["name"] for r in self.db.execute("PRAGMA table_info(watches)")}
         self.lock = threading.Lock()
+        if "wife_asleep" in cols:  # renamed when the names became settings (2026-11-27)
+            with self.db:
+                self.db.execute("ALTER TABLE watches RENAME COLUMN wife_asleep TO missed_end")
         if "who" not in cols:  # databases from before who-watched (2026-10-27)
             with self.db:
                 self.db.execute("ALTER TABLE watches ADD COLUMN who TEXT")
@@ -178,10 +182,10 @@ class Store:
                     if r["notes"] and r["notes"] not in notes:
                         notes.append(r["notes"])
                 self.db.execute(
-                    "UPDATE watches SET watched_on = ?, episode = ?, service = ?, rating = ?, wife_asleep = ?, "
+                    "UPDATE watches SET watched_on = ?, episode = ?, service = ?, rating = ?, missed_end = ?, "
                     "notes = ?, episode_list = ? WHERE id = ?",
                     (last["watched_on"], last["episode"], last["service"], rated[-1] if rated else None,
-                     max(r["wife_asleep"] for r in rows), "\n".join(notes) or None,
+                     max(r["missed_end"] for r in rows), "\n".join(notes) or None,
                      json.dumps(eps) if eps else None, keep["id"]))
                 ids = [r["id"] for r in rows if r["id"] != keep["id"]]
                 self.db.execute(f"DELETE FROM watches WHERE id IN ({','.join('?' * len(ids))})", ids)
@@ -206,11 +210,11 @@ class Store:
                 eps.append(episode)
             notes = "\n".join(n for n in (old["notes"], w["notes"]) if n) or None
             self.db.execute(
-                "UPDATE watches SET watched_on = ?, episode = ?, rating = ?, wife_asleep = ?, notes = ?, "
+                "UPDATE watches SET watched_on = ?, episode = ?, rating = ?, missed_end = ?, notes = ?, "
                 "episode_list = ?, who = ? WHERE id = ?",
                 (max(old["watched_on"], w["watched_on"]), episode_label(eps),
                  old["rating"] if old["rating"] is not None else w["rating"],
-                 max(old["wife_asleep"], w["wife_asleep"]), notes, json.dumps(eps),
+                 max(old["missed_end"], w["missed_end"]), notes, json.dumps(eps),
                  combine_who(old["who"], w["who"]), old["id"]))
             self.db.execute("DELETE FROM watches WHERE id = ?", (wid,))
 
@@ -245,11 +249,11 @@ class Store:
             if w["episode"] and w["episode"] not in eps:
                 eps.append(w["episode"])
             self.db.execute(
-                "UPDATE watches SET watched_on = ?, episode = ?, service = ?, rating = ?, wife_asleep = ?, "
+                "UPDATE watches SET watched_on = ?, episode = ?, service = ?, rating = ?, missed_end = ?, "
                 "notes = ?, episode_list = ?, who = ? WHERE id = ?",
                 (max(old["watched_on"], w["watched_on"]), w["episode"] or old["episode"], w["service"],
                  w["rating"] if w["rating"] is not None else old["rating"],
-                 max(old["wife_asleep"], w["wife_asleep"]), w["notes"] or old["notes"],
+                 max(old["missed_end"], w["missed_end"]), w["notes"] or old["notes"],
                  json.dumps(eps) if eps else None, combine_who(old["who"], w["who"]), old["id"]))
         return {**self.get(old["id"]), "merged": True}
 
@@ -377,7 +381,7 @@ class Store:
         for r in sorted(self.all(), key=lambda r: (r["watched_on"], r["id"])):
             w.writerow([safe_cell(v) for v in (
                 r["title"], r["kind"], r["episode"], "; ".join(r["episodes"]), r["service"],
-                r["watched_on"], r["rating"], SAW_END[r["wife_asleep"]], names.get(r["who"], ""),
+                r["watched_on"], r["rating"], SAW_END[r["missed_end"]], names.get(r["who"], ""),
                 r["notes"], r["created_at"])])
         return out.getvalue()
 
@@ -397,7 +401,7 @@ class Store:
         for r in rows:
             s = by_service.setdefault(r["service"], {"service": r["service"], "count": 0, "asleep": 0, "ratings": []})
             s["count"] += 1
-            s["asleep"] += r["wife_asleep"] > 0
+            s["asleep"] += r["missed_end"] > 0
             if r["rating"] is not None:
                 s["ratings"].append(r["rating"])
         services = []
@@ -411,6 +415,6 @@ class Store:
             "movies": sum(r["kind"] == "movie" for r in rows),
             "shows": len({r["title"] for r in rows if r["kind"] == "show"}),
             "avg_rating": round(sum(rated) / len(rated), 2) if rated else None,
-            "asleep": sum(r["wife_asleep"] > 0 for r in rows),
+            "asleep": sum(r["missed_end"] > 0 for r in rows),
             "services": services,
         }

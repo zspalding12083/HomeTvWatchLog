@@ -35,6 +35,8 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 - **2026-11-27:** names became settings and CSV export was added. Old `p1` / `p2`
   values were converted to `p1` / `p2` on the Pi, and the counts matched before and after.
   Backup taken first: `backups/watchlog-20261127-1230.db`.
+  The `wife_asleep` column was renamed to `missed_end`, in the database and the API.
+  Old databases rename it on start, and the API still accepts `wife_asleep`.
 - **2026-11-26:** security review and fixes, deployed. See [SECURITY.md](SECURITY.md).
   There's no login, on purpose (it's for the home network). The server refuses requests
   that other web pages send, DNS rebinding, malformed bodies and being loaded in a frame.
@@ -49,12 +51,10 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
   these, so they can't be matched to a show.
 - **Max, Paramount+, Peacock and Apple TV** have no history download, so those entries are
   typed in by hand.
-- The database column for "saw the end" is still named `wife_asleep` (in the API too).
-  It doesn't show on the page, but renaming it would finish making the code generic.
 
 ## Deploying
 
-- Tests: `python3 -m unittest discover -s tests -t .` (39 tests, all passing)
+- Tests: `python3 -m unittest discover -s tests -t .` (40 tests, all passing)
 - `deploy/sync.sh backup` snapshots the database into `backups/`, which git ignores.
 - `deploy/sync.sh push` runs the tests, copies the code to the Pi and restarts the service.
 - Push to both remotes: `git push origin main` (watchlog) and `git push hometv main` (HomeTvWatchLog).

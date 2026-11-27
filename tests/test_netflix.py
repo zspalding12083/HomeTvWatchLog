@@ -14,7 +14,7 @@ US = '''﻿Title,Date
 "Glass Onion: A Knives Out Mystery","1/2/23"
 '''
 # the other profile: one shared episode, one of her own, and a newer Glass Onion rewatch
-WIFE = '''Title,Date
+THEIRS = '''Title,Date
 "Severance: Season 2: Who Is Alive?","10/24/26"
 "Severance: Season 2: Cold Harbor","10/26/26"
 "Glass Onion: A Knives Out Mystery","10/25/26"
@@ -78,14 +78,14 @@ class FindShowsTest(unittest.TestCase):
     def test_repair(self):
         s = Store(":memory:")
         s.add({"title": "Scrubs", "kind": "show", "service": "Netflix", "episode": "S2: My Overkill", "watched_on": "2024-01-01"})
-        s.add({"title": "Scrubs: My Last Day", "service": "Netflix", "watched_on": "2024-01-05", "rating": 4, "wife_asleep": 2})
+        s.add({"title": "Scrubs: My Last Day", "service": "Netflix", "watched_on": "2024-01-05", "rating": 4, "missed_end": 2})
         s.add({"title": "Tiger King: Playing with Fire", "service": "Netflix", "watched_on": "2024-02-01"})
         s.add({"title": "Tiger King: The Noble Thing", "service": "Netflix", "watched_on": "2024-02-02", "notes": "wild"})
         s.add({"title": "Mission: Impossible - Dead Reckoning", "service": "Netflix"})
         self.assertEqual(netflix.repair(s), 3)
         got = {w["title"]: w for w in s.all()}
         self.assertEqual(sorted(got), ["Mission: Impossible - Dead Reckoning", "Scrubs", "Tiger King"])
-        self.assertEqual((got["Scrubs"]["rating"], got["Scrubs"]["wife_asleep"], got["Scrubs"]["watched_on"]), (4, 2, "2024-01-05"))
+        self.assertEqual((got["Scrubs"]["rating"], got["Scrubs"]["missed_end"], got["Scrubs"]["watched_on"]), (4, 2, "2024-01-05"))
         self.assertEqual((got["Tiger King"]["kind"], got["Tiger King"]["notes"], got["Tiger King"]["episode"]),
                          ("show", "wild", "2 episodes"))
         self.assertEqual(netflix.repair(s), 0)
@@ -95,19 +95,19 @@ class WhoTest(unittest.TestCase):
     def test_profiles_combine(self):
         s = Store(":memory:")
         mine = [{**r, "who": "p1"} for r in netflix.parse(US)]
-        hers = [{**r, "who": "p2"} for r in netflix.parse(WIFE)]
+        theirs = [{**r, "who": "p2"} for r in netflix.parse(THEIRS)]
         s.import_many(mine)
-        self.assertEqual([s.import_status(r) for r in hers], ["update", "update"])
-        s.import_many(hers)
+        self.assertEqual([s.import_status(r) for r in theirs], ["update", "update"])
+        s.import_many(theirs)
         who = {w["title"]: w["who"] for w in s.all()}
         self.assertEqual(who["Severance"], "both")
         self.assertEqual(who["Glass Onion: A Knives Out Mystery"], "both")
         self.assertEqual(who["Baby Reindeer"], "p1")
         # re-importing just to record whose profile: an update even with nothing else new
         s2 = Store(":memory:")
-        s2.import_many(netflix.parse(WIFE))
-        self.assertEqual([s2.import_status(r) for r in hers], ["update", "update"])
-        s2.import_many(hers)
+        s2.import_many(netflix.parse(THEIRS))
+        self.assertEqual([s2.import_status(r) for r in theirs], ["update", "update"])
+        s2.import_many(theirs)
         self.assertEqual({w["who"] for w in s2.all()}, {"p2"})
 
     def test_manual(self):
@@ -124,15 +124,15 @@ class ImportTest(unittest.TestCase):
         s.add({"title": "severance", "service": "Netflix", "kind": "show", "watched_on": "2026-10-01", "rating": 5})
         self.assertEqual(s.import_many(netflix.parse(US)), {"added": 3, "updated": 1})
         self.assertEqual(s.import_many(netflix.parse(US)), {"added": 0, "updated": 0})
-        wife = netflix.parse(WIFE)
-        self.assertEqual([s.import_status(r) for r in wife], ["update", "update"])
-        self.assertEqual(s.import_many(wife), {"added": 0, "updated": 2})
+        other = netflix.parse(THEIRS)
+        self.assertEqual([s.import_status(r) for r in other], ["update", "update"])
+        self.assertEqual(s.import_many(other), {"added": 0, "updated": 2})
         got = {w["title"]: w for w in s.all()}
         self.assertEqual(len(got), 4)
         sev = got["severance"]
         self.assertEqual((sev["watched_on"], sev["episode"], sev["rating"]), ("2026-10-26", "S1–S2 · 4 episodes", 5))
         self.assertEqual(got["Glass Onion: A Knives Out Mystery"]["watched_on"], "2026-10-25")
-        self.assertEqual([s.import_status(r) for r in wife], ["logged", "logged"])
+        self.assertEqual([s.import_status(r) for r in other], ["logged", "logged"])
 
 
 if __name__ == "__main__":

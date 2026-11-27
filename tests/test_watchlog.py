@@ -16,7 +16,7 @@ class CleanTest(unittest.TestCase):
         self.assertEqual(w["kind"], "movie")
         self.assertEqual(w["watched_on"], dt.date.today().isoformat())
         self.assertIsNone(w["rating"])
-        self.assertEqual(w["wife_asleep"], 0)
+        self.assertEqual(w["missed_end"], 0)
 
     def test_episode_only_for_shows(self):
         self.assertIsNone(clean({"title": "x", "service": "Max", "episode": "S1E1"})["episode"])
@@ -24,7 +24,7 @@ class CleanTest(unittest.TestCase):
 
     def test_rejects_bad_input(self):
         for bad in ({"service": "Max"}, {"title": "x"}, {"title": "x", "service": "Max", "rating": 6},
-                    {"title": "x", "service": "Max", "rating": 3.3}, {"title": "x", "service": "Max", "wife_asleep": 3},
+                    {"title": "x", "service": "Max", "rating": 3.3}, {"title": "x", "service": "Max", "missed_end": 3},
                     {"title": "x", "service": "Max", "kind": "book"}, {"title": "x", "service": "Max", "watched_on": "soon"}):
             with self.assertRaises(ValueError, msg=bad):
                 clean(bad)
@@ -45,7 +45,7 @@ class StoreTest(unittest.TestCase):
         self.s = Store(":memory:")
 
     def test_crud(self):
-        w = self.s.add({"title": "Dune", "service": "Max", "rating": 4.5, "wife_asleep": 2})
+        w = self.s.add({"title": "Dune", "service": "Max", "rating": 4.5, "missed_end": 2})
         self.assertEqual(self.s.get(w["id"])["rating"], 4.5)
         self.s.update(w["id"], {**w, "rating": 5})
         self.assertEqual(self.s.get(w["id"])["rating"], 5)
@@ -57,11 +57,11 @@ class StoreTest(unittest.TestCase):
         first = self.s.add({"title": "Severance", "kind": "show", "episode": "S2E3", "service": "Apple TV+",
                             "watched_on": "2026-10-20", "rating": 4, "notes": "creepy"})
         again = self.s.add({"title": "severance", "kind": "show", "episode": "S2E4", "service": "Apple TV+",
-                            "watched_on": "2026-10-24", "wife_asleep": 1})
+                            "watched_on": "2026-10-24", "missed_end": 1})
         self.assertTrue(again["merged"])
         self.assertEqual(len(self.s.all()), 1)
         w = self.s.get(first["id"])
-        self.assertEqual((w["watched_on"], w["episode"], w["rating"], w["wife_asleep"], w["notes"]),
+        self.assertEqual((w["watched_on"], w["episode"], w["rating"], w["missed_end"], w["notes"]),
                          ("2026-10-24", "S2E4", 4, 1, "creepy"))
         # same title as a movie is a different entry
         self.s.add({"title": "Severance", "service": "Max"})
@@ -77,20 +77,20 @@ class StoreTest(unittest.TestCase):
                 ("DS9", "show", "S1 · 3 episodes", "Netflix", "2020-01-01", None, 0, None),
                 ("DS9", "show", "S2 · 2 episodes", "Netflix", "2020-02-01", None, 1, None),
                 ("Glass Onion", "movie", None, "Netflix", "2023-01-01", None, 0, None)]
-        db.executemany("INSERT INTO watches (title, kind, episode, service, watched_on, rating, wife_asleep, notes, "
+        db.executemany("INSERT INTO watches (title, kind, episode, service, watched_on, rating, missed_end, notes, "
                        "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'x')", rows)
         db.commit()
         db.close()
         got = {w["title"]: w for w in Store(path).all()}
         self.assertEqual(sorted(got), ["DS9", "Dune", "Glass Onion"])
-        self.assertEqual((got["Dune"]["watched_on"], got["Dune"]["rating"], got["Dune"]["wife_asleep"], got["Dune"]["notes"]),
+        self.assertEqual((got["Dune"]["watched_on"], got["Dune"]["rating"], got["Dune"]["missed_end"], got["Dune"]["notes"]),
                          ("2025-01-01", 4.5, 2, "again"))
-        self.assertEqual((got["DS9"]["episode"], got["DS9"]["wife_asleep"]), ("S2 · 2 episodes", 1))
+        self.assertEqual((got["DS9"]["episode"], got["DS9"]["missed_end"]), ("S2 · 2 episodes", 1))
         self.assertEqual(len(Store(path).all()), 3)  # runs once; opening again changes nothing
 
     def test_stats(self):
         today = dt.date(2026, 10, 27)
-        self.s.add({"title": "Dune", "service": "Max", "rating": 4, "watched_on": "2026-10-01", "wife_asleep": 1})
+        self.s.add({"title": "Dune", "service": "Max", "rating": 4, "watched_on": "2026-10-01", "missed_end": 1})
         self.s.add({"title": "Severance", "kind": "show", "service": "Apple TV+", "watched_on": "2026-10-02"})
         self.s.add({"title": "Severance", "kind": "show", "service": "Apple TV+", "watched_on": "2026-09-30", "rating": 5})
         st = self.s.stats(today)  # the two Severance watches are one entry
@@ -117,7 +117,7 @@ class ApiTest(unittest.TestCase):
         return r.status, json.loads(data) if r.headers["Content-Type"] == "application/json" else data
 
     def test_round_trip(self):
-        status, w = self.call("POST", "/api/watches", {"title": "Dune", "service": "Max", "wife_asleep": 2})
+        status, w = self.call("POST", "/api/watches", {"title": "Dune", "service": "Max", "missed_end": 2})
         self.assertEqual(status, 201)
         self.assertEqual(self.call("PUT", f"/api/watches/{w['id']}", {**w, "rating": 3})[1]["rating"], 3)
         self.assertEqual(self.call("GET", "/api/summary")[1]["stats"]["asleep"], 1)
@@ -157,10 +157,23 @@ class SettingsExportTest(unittest.TestCase):
         self.assertEqual(s.settings(), {"person1": "Person 1", "person2": "Person 2", "end_person": "p2"})
         self.assertEqual(s.add({"title": "Old", "service": "Max", "who": "p1"})["who"], "p1")
 
+    def test_old_column_renamed(self):
+        import tempfile, os, sqlite3
+        path = os.path.join(tempfile.mkdtemp(), "old.db")
+        Store(path).add({"title": "Dune", "service": "Max", "missed_end": 2})
+        with sqlite3.connect(path) as db:  # as a database from before the rename
+            db.execute("ALTER TABLE watches RENAME COLUMN missed_end TO wife_asleep")
+        s = Store(path)
+        self.assertEqual(s.all()[0]["missed_end"], 2)
+        self.assertNotIn("wife_asleep", s.all()[0])
+        # scripts still sending the old name keep working
+        self.assertEqual(s.add({"title": "Old", "service": "Max", "wife_asleep": 1})["missed_end"], 1)
+        self.assertEqual(Store(path).all()[0]["missed_end"], 1)  # opening again changes nothing
+
     def test_export_csv(self):
         import csv, io
         self.s.save_settings({"person1": "Alex", "person2": "Sam"})
-        self.s.add({"title": "Dune", "service": "Max", "rating": 4.5, "wife_asleep": 1, "who": "p2",
+        self.s.add({"title": "Dune", "service": "Max", "rating": 4.5, "missed_end": 1, "who": "p2",
                     "watched_on": "2026-01-02", "notes": "great, \"really\""})
         self.s.add({"title": "=HYPERLINK(\"http://x\")", "service": "Netflix", "watched_on": "2026-01-01"})
         rows = list(csv.reader(io.StringIO(self.s.export_csv())))
