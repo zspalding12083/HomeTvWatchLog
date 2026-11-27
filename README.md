@@ -54,6 +54,7 @@ Python 3.10 stdlib + SQLite, no dependencies. Same layout as sogdash and netdash
 | `watchlog/static/index.html` | the dashboard |
 | `deploy/watchlog.service` | systemd unit (runs as user `watchlog`, port 9280) |
 | `STATUS.md` | where things stand and what is left |
+| `SECURITY.md` | security review: no login, what's protected and what isn't |
 | `deploy/demo_data.py` | made-up entries for trying it out or screenshots |
 | `deploy/sync.sh` | `push` / `backup` / `check` against the Pi |
 

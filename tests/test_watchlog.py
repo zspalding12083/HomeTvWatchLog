@@ -5,7 +5,7 @@ import threading
 import unittest
 from http.server import ThreadingHTTPServer
 
-from watchlog.server import make_handler
+from watchlog.server import local_host, make_handler
 from watchlog.store import SCHEMA, Store, clean, episode_label
 
 
@@ -130,6 +130,53 @@ class ApiTest(unittest.TestCase):
         status, page = self.call("GET", "/")
         self.assertEqual(status, 200)
         self.assertIn(b"Watch Log", page)
+
+
+class SecurityTest(ApiTest):
+    """No login, so the server must refuse what other web pages could make a browser send."""
+    WATCH = {"title": "Dune", "service": "Max"}
+
+    def raw(self, method, path, body=b"", headers=None):
+        c = http.client.HTTPConnection("127.0.0.1", self.httpd.server_port, timeout=5)
+        c.request(method, path, body, headers or {})
+        r = c.getresponse()
+        r.read()
+        return r.status, r.headers
+
+    def test_cross_site_writes_refused(self):
+        body = json.dumps(self.WATCH)
+        # a plain HTML form or fetch() from another site: text/plain needs no CORS preflight
+        self.assertEqual(self.raw("POST", "/api/watches", body, {"Content-Type": "text/plain"})[0], 415)
+        self.assertEqual(self.raw("POST", "/api/watches", body, {
+            "Content-Type": "application/json", "Origin": "https://evil.example"})[0], 403)
+        self.assertEqual(self.raw("DELETE", "/api/watches/1", b"", {"Origin": "http://evil.example"})[0], 403)
+        self.assertEqual(self.raw("POST", "/api/import", body, {
+            "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"})[0], 403)
+        self.assertEqual(self.call("GET", "/api/watches")[1], [])
+        # the page itself: same origin
+        port = self.httpd.server_port
+        self.assertEqual(self.raw("POST", "/api/watches", body, {
+            "Content-Type": "application/json", "Origin": f"http://127.0.0.1:{port}"})[0], 201)
+
+    def test_dns_rebinding_host_refused(self):
+        self.assertEqual(self.raw("GET", "/api/watches", headers={"Host": "rebind.evil.example"})[0], 421)
+        for ok in ("10.0.0.10:9280", "[::1]:9280", "localhost", "raspberrypi", "pi.local:9280", "pi.lan"):
+            self.assertTrue(local_host(ok), ok)
+        for bad in ("", "evil.example", "10.0.0.10.nip.io", "pi.local.evil.com"):
+            self.assertFalse(local_host(bad), bad)
+
+    def test_bad_bodies(self):
+        j = {"Content-Type": "application/json"}
+        self.assertEqual(self.raw("POST", "/api/watches", b"x", {**j, "Content-Length": "-1"})[0], 400)
+        self.assertEqual(self.raw("PUT", "/api/watches/1", b"[1]", j)[0], 400)
+        self.assertEqual(self.raw("POST", "/api/import", b"[1]", j)[0], 400)
+
+    def test_headers(self):
+        status, h = self.raw("GET", "/")
+        self.assertEqual(h["X-Frame-Options"], "DENY")
+        self.assertEqual(h["X-Content-Type-Options"], "nosniff")
+        self.assertIn("frame-ancestors 'none'", h["Content-Security-Policy"])
+        self.assertNotIn("Python", h["Server"])
 
 
 if __name__ == "__main__":

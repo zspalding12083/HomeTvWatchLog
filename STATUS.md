@@ -1,4 +1,4 @@
-# Watch log status (2026-11-20)
+# Watch log status (2026-11-26)
 
 Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
 
@@ -34,8 +34,14 @@ Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
 - **Max, Paramount+, Peacock and Apple TV** have no history download, so those entries are
   typed in by hand.
 
+## Security
+
+- Reviewed 2026-11-26; see [SECURITY.md](SECURITY.md). There's no login (it's for the home network).
+  The server now refuses requests that other web pages send, DNS rebinding,
+  malformed bodies and framing. **Deploy with `deploy/sync.sh push`** to put this on the Pi.
+
 ## Deploying
 
-- Tests: `python3 -m unittest discover -s tests -t .` (29 tests, all passing)
+- Tests: `python3 -m unittest discover -s tests -t .` (35 tests, all passing)
 - `deploy/sync.sh backup` snapshots the database into `backups/`, which git ignores.
 - `deploy/sync.sh push` copies the code to the Pi and restarts the service.

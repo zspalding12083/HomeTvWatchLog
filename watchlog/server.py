@@ -1,5 +1,6 @@
 """Watch log dashboard (port 9280), stdlib only."""
 import http.server
+import ipaddress
 import json
 import logging
 import os
@@ -15,6 +16,39 @@ STATIC = os.path.join(os.path.dirname(__file__), "static")
 WATCH_ID = re.compile(r"^/api/watches/(\d+)$")
 POSTER_AGAIN = re.compile(r"^/api/watches/(\d+)/poster$")
 IMAGE_TYPES = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
+# No login: it's for the home network. These keep other web pages from using it
+# through a browser on that network (cross-site requests, DNS rebinding).
+LOCAL_SUFFIXES = (".local", ".lan", ".home", ".home.arpa", ".internal", ".localhost")
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+}
+
+
+def host_name(value):
+    """'10.0.0.10:9280' -> '10.0.0.10', '[::1]:9280' -> '::1', 'pi.local' -> 'pi.local'."""
+    value = (value or "").strip().lower()
+    if value.startswith("["):
+        return value[1:].split("]", 1)[0]
+    return value.rsplit(":", 1)[0] if value.count(":") == 1 else value
+
+
+def local_host(value):
+    """A Host header that can't be a DNS-rebinding name: an IP, localhost, a bare
+    name ('raspberrypi') or a home-network suffix ('pi.local')."""
+    name = host_name(value).rstrip(".")
+    if not name:
+        return False
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        pass
+    return name == "localhost" or "." not in name or name.endswith(LOCAL_SUFFIXES)
 
 
 def make_handler(store, posters=None):
@@ -25,6 +59,34 @@ def make_handler(store, posters=None):
 
     class Handler(http.server.BaseHTTPRequestHandler):
         server_version = "watchlog"
+        sys_version = ""
+        timeout = 30  # a stalled client can't hold a thread forever
+
+        def end_headers(self):
+            for k, v in SECURITY_HEADERS.items():
+                self.send_header(k, v)
+            super().end_headers()
+
+        def allowed(self, write=False):
+            """Refuse rebinding hosts, and writes from other sites. Sends the error."""
+            if not local_host(self.headers.get("Host")):
+                self.send_json({"error": "unknown host"}, 421)
+                return False
+            if write:
+                origin = self.headers.get("Origin")
+                if origin and origin != "null" and \
+                        urllib.parse.urlsplit(origin).netloc.lower() != (self.headers.get("Host") or "").lower():
+                    self.send_json({"error": "cross-site request refused"}, 403)
+                    return False
+                if self.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site"):
+                    self.send_json({"error": "cross-site request refused"}, 403)
+                    return False
+                # a JSON content type makes browsers ask first (CORS preflight), which we never allow
+                ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+                if self.command in ("POST", "PUT") and ctype != "application/json":
+                    self.send_json({"error": "Content-Type must be application/json"}, 415)
+                    return False
+            return True
 
         def log_message(self, fmt, *args):
             log.debug("%s %s", self.address_string(), fmt % args)
@@ -40,11 +102,18 @@ def make_handler(store, posters=None):
 
         def read_json(self, limit=64 * 1024):
             n = int(self.headers.get("Content-Length") or 0)
+            if n < 0:
+                raise ValueError("bad Content-Length")
             if n > limit:
                 raise ValueError("request too large")
-            return json.loads(self.rfile.read(n) or b"{}")
+            data = json.loads(self.rfile.read(n) or b"{}")
+            if not isinstance(data, dict):
+                raise ValueError("expected a JSON object")
+            return data
 
         def do_GET(self):
+            if not self.allowed():
+                return
             path = self.path.split("?", 1)[0]
             if path in ("/", "/index.html"):
                 with open(os.path.join(STATIC, "index.html"), "rb") as f:
@@ -78,6 +147,8 @@ def make_handler(store, posters=None):
                 self.send_json({"error": "not found"}, 404)
 
         def do_POST(self):
+            if not self.allowed(write=True):
+                return
             try:
                 again = POSTER_AGAIN.match(self.path)
                 if self.path == "/api/watches":
@@ -111,17 +182,21 @@ def make_handler(store, posters=None):
                 self.send_json({"error": str(e)}, 400)
 
         def do_PUT(self):
+            if not self.allowed(write=True):
+                return
             m = WATCH_ID.match(self.path)
             if not m:
                 return self.send_json({"error": "not found"}, 404)
             try:
                 w = store.update(int(m.group(1)), self.read_json())
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError, AttributeError) as e:
                 return self.send_json({"error": str(e)}, 400)
             self.send_json(w) if w else self.send_json({"error": "not found"}, 404)
             changed()
 
         def do_DELETE(self):
+            if not self.allowed(write=True):
+                return
             m = WATCH_ID.match(self.path)
             if m and store.delete(int(m.group(1))):
                 self.send_json({"ok": True})
