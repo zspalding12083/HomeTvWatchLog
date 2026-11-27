@@ -2,7 +2,7 @@
 
 Running on the Pi at <http://10.0.0.10:9280> as the `watchlog` systemd service.
 The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on the Pi
-(checked with `deploy/sync.sh check`, 2026-11-27).
+(checked with `deploy/sync.sh check`, 2026-11-27; later commits only change docs).
 
 ## What works
 
@@ -33,6 +33,10 @@ The code on GitHub (`watchlog` and `HomeTvWatchLog`) is the same as what runs on
 
 ## Recent changes
 
+- **2026-11-27, README:** rewritten for people outside the house: a features list,
+  a "Try it" with demo data, the command-line options, security notes, `PI=user@host`
+  for installing on another Pi, and a table of every API endpoint. Our Pi's address and
+  SSH key notes were taken out of it. The "Try it" commands were tested.
 - **2026-11-27, privacy:** our first names are out of the repo and its git history.
   All commits were rewritten, so the old screenshots and commit messages are gone too,
   and both GitHub repos were force-pushed. The one-time upgrade that knew the names was
